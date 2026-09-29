@@ -469,6 +469,15 @@ h2{font-size:19px}
 .day.abs.exam::before{background:var(--accent-ink)}
 /* uzaktan simgesi satır içinde kalsın (bazı listelerde span'lar blok yapılıyordu) */
 span.ico{display:inline-flex!important}
+
+#fbkText{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font:inherit;font-size:15px;color:inherit;resize:vertical}
+.fitem{border-top:1px solid var(--line);padding:12px 0}
+.fhead{display:flex;align-items:center;gap:8px}
+.fhead b{font-weight:600;font-size:15px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fago{font-size:12px;color:var(--muted);white-space:nowrap}
+.ftext{margin:8px 0 4px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:15px}
+.fdev{margin:0 0 8px;font-size:12px;color:var(--muted)}
+.fitem .del{padding:0 12px}
 </style>
 </head>
 <body>
@@ -527,6 +536,10 @@ span.ico{display:inline-flex!important}
       <summary>Ayarlar</summary>
       <div id="setBody"></div>
     </details>
+    <div class="panel acct" id="fbk" style="margin-top:14px">
+      <h2>Geri bildirim</h2>
+      <div id="fbkBody"></div>
+    </div>
     <div class="panel acct" id="acct">
       <h2>Bulut yedeği</h2>
       <div id="acctBody"><p class="st">Yükleniyor…</p></div>
@@ -1822,6 +1835,55 @@ function renderAll(map){
   });
 }
 
+/* ---------- geri bildirim ---------- */
+var APP_VERSION = "2026.09.30";
+var FBK_LAST = "devamsizlik-fbk-last";
+var fbk = {kind:"Hata", text:"", msg:"", ok:false, busy:false};
+function deviceInfo(){
+  var ua = navigator.userAgent || "";
+  var os = /Android/.test(ua) ? "Android" : /iPhone|iPad|iPod/.test(ua) ? "iPhone" : /Windows/.test(ua) ? "Windows" : /Mac/.test(ua) ? "Mac" : "Diğer";
+  var br = /SamsungBrowser/.test(ua) ? "Samsung Internet" : /Edg\//.test(ua) ? "Edge" : /Chrome\//.test(ua) ? "Chrome" : /Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "Tarayıcı";
+  var th = document.documentElement.getAttribute("data-theme") || "otomatik";
+  return os + ", " + br + ", " + (isStandalone() ? "yüklü uygulama" : "tarayıcı sekmesi") + ", " + th + " tema, sürüm " + APP_VERSION;
+}
+function renderFeedback(){
+  var body = document.getElementById("fbkBody"); if(!body) return;
+  body.textContent = "";
+  body.appendChild(el("p",{class:"st",text:"Hata, öneri ya da aklına takılan bir şey varsa yaz. Mesajın adın ve e-postanla birlikte uygulamayı yayınlayan kişiye gider."}));
+  var kinds = el("div",{class:"daychips",style:"margin-top:10px"});
+  ["Hata","Öneri","Diğer"].forEach(function(k){
+    kinds.appendChild(el("button",{class:"chip",type:"button","aria-pressed":String(fbk.kind === k),text:k,onclick:function(){ fbk.kind = k; renderFeedback(); }}));
+  });
+  body.appendChild(kinds);
+  var ta = el("textarea",{id:"fbkText",rows:"4",maxlength:"2000",
+    placeholder: fbk.kind === "Hata" ? "Ne oldu? Hangi ekranda, neye basınca?" : fbk.kind === "Öneri" ? "Ne olsa işine yarardı?" : "Mesajın"});
+  ta.value = fbk.text;
+  ta.addEventListener("input", function(){ fbk.text = ta.value; if(fbk.msg){ fbk.msg = ""; var m = document.getElementById("fbkMsg"); if(m) m.textContent = ""; } });
+  body.appendChild(el("div",{class:"field",style:"margin-top:10px"},[ el("label",{for:"fbkText",text:"Mesaj"}), ta ]));
+  body.appendChild(el("p",{class:"hint",text:"Telefon bilgisi de eklenir: " + deviceInfo() + "."}));
+  body.appendChild(el("button",{class:"primary",type:"button",text: fbk.busy ? "Gönderiliyor…" : "Gönder",onclick:sendFeedback}));
+  body.appendChild(el("p",{class:"hint" + (fbk.ok ? "" : " err"),id:"fbkMsg",text:fbk.msg}));
+}
+function sendFeedback(){
+  if(fbk.busy) return;
+  var text = (fbk.text || "").trim();
+  if(!text){ fbk.msg = "Önce bir şey yaz."; fbk.ok = false; renderFeedback(); return; }
+  if(!user || !fb){ fbk.msg = "Göndermek için internet ve giriş gerekiyor."; fbk.ok = false; renderFeedback(); return; }
+  var last = 0; try{ last = +localStorage.getItem(FBK_LAST) || 0; }catch(e){}
+  if(Date.now() - last < 60000){ fbk.msg = "Az önce gönderdin, bir dakika bekle."; fbk.ok = false; renderFeedback(); return; }
+  fbk.busy = true; fbk.msg = ""; renderFeedback();
+  var data = {uid:user.uid, text:text.slice(0, 2000), kind:fbk.kind, createdAt:Date.now(), device:deviceInfo()};
+  if(user.displayName) data.name = String(user.displayName).slice(0, 80);
+  if(user.email) data.email = String(user.email);
+  fb.setDoc(fb.doc(fb.db, "feedback", sid() + sid()), data).then(function(){
+    try{ localStorage.setItem(FBK_LAST, String(Date.now())); }catch(e){}
+    fbk.text = ""; fbk.msg = "Gönderildi, teşekkürler."; fbk.ok = true;
+  }).catch(function(e){
+    fbk.msg = (e && e.code === "permission-denied") ? "Gönderilemedi: sunucu ayarı eksik. Uygulamayı yayınlayan kişiye haber ver." : (errText(e) || "Gönderilemedi.");
+    fbk.ok = false;
+  }).then(function(){ fbk.busy = false; renderFeedback(); });
+}
+
 /* ---------- yönetici paneli (salt okunur) ---------- */
 /* Paneli kod değil Firestore kuralları açar: kurallar herkesin listesini sadece
    yöneticiye okutur. Başkası için bu deneme reddedilir ve panel hiç görünmez. */
@@ -1834,9 +1896,15 @@ function checkAdmin(){
     isAdmin = true; loadAdmin();
   }).catch(function(){ isAdmin = false; });
 }
+var adminFbk = null, adminFbkErr = "", fbkArmed = null;
 function loadAdmin(){
   if(!isAdmin || adminLoading) return;
   adminLoading = true; adminErr = ""; renderAdmin();
+  fb.getDocs(fb.collection(fb.db, "feedback")).then(function(snap){
+    adminFbk = snap.docs.map(function(d){ var v = d.data(); v.id = d.id; return v; })
+      .sort(function(a,b){ return (+b.createdAt||0) - (+a.createdAt||0); });
+    adminFbkErr = "";
+  }).catch(function(){ adminFbk = null; adminFbkErr = "Geri bildirimleri okumak için Firestore kurallarını güncellemen gerekiyor."; });
   fb.getDocs(fb.collection(fb.db, "users")).then(function(snap){
     adminData = snap.docs.map(function(d){
       var v = d.data(), st = null;
@@ -1946,6 +2014,30 @@ function renderAdmin(){
     ]));
   });
   box.appendChild(el("a",{class:"ghost alink",href:ACTIONS_URL,target:"_blank",rel:"noopener",text:"Herkese bildirim gönder (GitHub)"}));
+  var fh = el("div",{class:"ahead",style:"margin-top:18px"},[ el("h2",{text:"Geri bildirimler" + (adminFbk && adminFbk.length ? " (" + adminFbk.length + ")" : "")}) ]);
+  box.appendChild(fh);
+  if(adminFbkErr){ box.appendChild(el("p",{class:"hint err",text:adminFbkErr})); return; }
+  if(!adminFbk){ box.appendChild(el("p",{class:"hint",text:"Yükleniyor…"})); return; }
+  if(!adminFbk.length){ box.appendChild(el("p",{class:"hint",text:"Henüz geri bildirim yok."})); return; }
+  adminFbk.forEach(function(f){
+    var isArmed = fbkArmed === f.id;
+    box.appendChild(el("div",{class:"fitem"},[
+      el("div",{class:"fhead"},[
+        el("span",{class:"abadge" + (f.kind === "Hata" ? " red" : f.kind === "Öneri" ? " amber" : ""),text:f.kind || "Diğer"}),
+        el("b",{text:f.name || f.email || "İsimsiz"}),
+        el("span",{class:"fago",text:agoText(+f.createdAt || 0)})
+      ]),
+      el("p",{class:"ftext",text:f.text || ""}),
+      el("p",{class:"fdev",text:[f.email && f.name ? f.email : "", f.device || ""].filter(Boolean).join(", ")}),
+      el("button",{class:"del" + (isArmed ? " arm" : ""),type:"button",text: isArmed ? "Silmeyi onayla" : "Okundu, sil",onclick:function(){
+        if(!isArmed){ fbkArmed = f.id; renderAdmin(); return; }
+        fbkArmed = null;
+        fb.deleteDoc(fb.doc(fb.db, "feedback", f.id)).then(function(){
+          adminFbk = adminFbk.filter(function(x){ return x.id !== f.id; }); renderAdmin();
+        }).catch(function(e){ adminFbkErr = errText(e) || "Silinemedi."; renderAdmin(); });
+      }})
+    ]));
+  });
 }
 
 /* ---------- sekmeler ---------- */
@@ -2009,7 +2101,7 @@ function render(){
     renderAdd();
   }
   if(tab === "cal") renderCalendar();
-  if(tab === "more"){ renderSettings(); renderPush(); checkAdmin(); renderAdmin(); }
+  if(tab === "more"){ renderSettings(); renderPush(); renderFeedback(); checkAdmin(); renderAdmin(); }
   document.getElementById("ruleLine").textContent = "Limit = haftalık ders saati × " + W() + " hafta. 1 kutu = 1 ders saati.";
 }
 
