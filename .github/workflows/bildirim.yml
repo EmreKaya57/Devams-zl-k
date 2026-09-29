@@ -1,0 +1,74 @@
+name: Bildirim gönder
+
+on:
+  workflow_dispatch:
+    inputs:
+      mesaj:
+        description: "Bildirim metni"
+        required: true
+      baslik:
+        description: "Başlık"
+        required: false
+        default: "Devamsızlık"
+
+permissions:
+  contents: read
+
+jobs:
+  gonder:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Bildirimi gönder
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          TITLE: ${{ inputs.baslik }}
+          BODY: ${{ inputs.mesaj }}
+          LINK: https://emrekaya57.github.io/Devams-zl-k/
+        run: |
+          npm install --no-save --silent firebase-admin@14
+          node --input-type=module <<'JS'
+          import { initializeApp, cert } from "firebase-admin/app";
+          import { getFirestore } from "firebase-admin/firestore";
+          import { getMessaging } from "firebase-admin/messaging";
+
+          let sa;
+          try { sa = JSON.parse(process.env.SA || ""); } catch (e) { sa = null; }
+          if (!sa || !sa.project_id) {
+            console.error("FIREBASE_SERVICE_ACCOUNT gizli anahtarı eksik ya da hatalı.");
+            process.exit(1);
+          }
+          initializeApp({ credential: cert(sa) });
+
+          const title = (process.env.TITLE || "Devamsızlık").slice(0, 80);
+          const body = (process.env.BODY || "").slice(0, 400);
+          const link = process.env.LINK;
+          if (!body.trim()) { console.error("Mesaj boş."); process.exit(1); }
+
+          const db = getFirestore();
+          const snap = await db.collection("pushTokens").get();
+          const tokens = snap.docs.map(d => d.id);
+          console.log("Kayıtlı cihaz: " + tokens.length);
+          if (!tokens.length) process.exit(0);
+
+          const dead = ["messaging/registration-token-not-registered", "messaging/invalid-registration-token", "messaging/invalid-argument"];
+          let ok = 0, bad = [], other = 0;
+          for (let i = 0; i < tokens.length; i += 500) {
+            const batch = tokens.slice(i, i + 500);
+            const res = await getMessaging().sendEachForMulticast({
+              tokens: batch,
+              data: { title, body, url: link },
+              webpush: { headers: { Urgency: "high", TTL: "86400" }, fcmOptions: { link } }
+            });
+            res.responses.forEach((r, j) => {
+              if (r.success) ok++;
+              else if (r.error && dead.includes(r.error.code)) bad.push(batch[j]);
+              else { other++; console.log("Hata: " + (r.error && r.error.code)); }
+            });
+          }
+          for (const t of bad) await db.collection("pushTokens").doc(t).delete();
+          console.log("Gönderildi: " + ok + " | Silinen eski cihaz: " + bad.length + " | Diğer hata: " + other);
+          JS
