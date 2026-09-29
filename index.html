@@ -2113,7 +2113,11 @@ function syncNow(){
     }
     var merged = remote ? merge(state, remote) : state;
     if(canon(merged) !== canon(state)){ state = merged; persistLocal(); render(); }
-    if(!remote || canon(merged) !== canon(remote)){
+    /* ad/e-posta eksik ya da eskiyse veri değişmese de yaz (yönetici listesinde isim görünsün) */
+    var rd = snap.exists() ? (snap.data() || {}) : {};
+    var wantName = user.displayName ? String(user.displayName).slice(0, 80) : "";
+    var needProfile = (user.email && rd.email !== user.email) || (wantName && rd.name !== wantName);
+    if(!remote || needProfile || canon(merged) !== canon(remote)){
       var payload = {data: JSON.stringify(merged), updatedAt: Date.now()};
       if(user.displayName) payload.name = String(user.displayName).slice(0, 80);
       if(user.email) payload.email = String(user.email);
