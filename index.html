@@ -217,8 +217,7 @@ function defaults(){
       {code:"MAK209",name:"Dinamik",sessions:[{id:"s209",d:4,t:"13:15–16:00",h:3}]},
       {code:"MAK211",name:"Termodinamik I",sessions:[{id:"s211",d:1,t:"13:15–16:00",h:3}]},
       {code:"MAK213",name:"Ölçme Tekniği ve Değerlendirme",sessions:[{id:"s213",d:3,t:"10:15–12:00",h:2}]},
-      {code:"MAK215",name:"İmal Usulleri",sessions:[{id:"s215",d:4,t:"09:15–12:00",h:3}]},
-      {code:"MAT101",name:"Matematik I (alttan)",sessions:[],custom:true}
+      {code:"MAK215",name:"İmal Usulleri",sessions:[{id:"s215",d:4,t:"09:15–12:00",h:3}]}
     ],
     entries:[]
   };
@@ -493,7 +492,7 @@ function renderDetail(c, w){
     drafts[c.code] = null; save(); render();
   }}));
   det.appendChild(smsg);
-  if(c.custom){
+  {
     det.appendChild(el("button",{class:"ghost danger",type:"button",text:"Dersi kaldır",onclick:function(){
       if(armed === "course:"+c.code){
         state.courses = state.courses.filter(function(x){ return x.code!==c.code; });
