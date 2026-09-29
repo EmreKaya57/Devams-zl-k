@@ -364,6 +364,28 @@ body.gated .tabbar{display:none}
   @keyframes gatein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 }
 @media (prefers-reduced-motion: reduce){ .primary:active,.ghost:active,.chip:active,.gbtn:active{transform:none} }
+
+.adminp{padding:14px;margin-bottom:14px;border-color:var(--accent)}
+.ahead{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.ahead h2{margin:0}
+.astats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0 6px}
+.astats div{background:var(--bg);border-radius:10px;padding:10px 8px;text-align:center}
+.astats b{display:block;font-family:var(--cond);font-weight:700;font-size:24px;line-height:1.1}
+.astats b.red{color:var(--red)}
+.astats span{font-size:12px;color:var(--muted)}
+.abadge{flex:none;font-family:var(--cond);font-weight:600;font-size:13px;padding:3px 9px;border-radius:999px;background:var(--cell);color:var(--ink);white-space:nowrap}
+.abadge.red{background:var(--red);color:#fff}
+.abadge.amber{background:var(--amber-t);color:var(--amber)}
+.auser{margin:12px 0 6px}
+.auser b{font-family:var(--cond);font-weight:600;font-size:19px;display:block}
+.arow{border-top:1px solid var(--line);padding:10px 0}
+.arow .top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.arow .cname b{font-family:var(--cond);font-weight:600;font-size:16px;display:block}
+.arow .cname span{font-size:12px;color:var(--muted)}
+.arow .r{font-family:var(--cond);font-weight:700;font-size:15px;white-space:nowrap}
+.arow .r.z1{color:var(--amber)} .arow .r.z2,.arow .r.over{color:var(--red)}
+.aline{margin:0;padding:6px 0;border-top:1px solid var(--line);font-size:14px}
+.alink{display:flex;align-items:center;justify-content:center;text-decoration:none;color:var(--ink);margin-top:14px}
 </style>
 </head>
 <body>
@@ -413,6 +435,7 @@ body.gated .tabbar{display:none}
   </section>
 
   <section class="tab" id="tab-more" hidden>
+    <div class="panel adminp" id="adminBox" hidden></div>
     <div class="panel acct" id="notif" style="margin-top:0;margin-bottom:14px">
       <h2>Bildirimler</h2>
       <div id="notifBody"></div>
@@ -1695,6 +1718,132 @@ function renderAll(map){
   });
 }
 
+/* ---------- yönetici paneli (salt okunur) ---------- */
+/* Paneli kod değil Firestore kuralları açar: kurallar herkesin listesini sadece
+   yöneticiye okutur. Başkası için bu deneme reddedilir ve panel hiç görünmez. */
+var isAdmin = null, adminData = null, adminSel = null, adminErr = "", adminLoading = false;
+var ACTIONS_URL = "https://github.com/EmreKaya57/Devams-zl-k/actions/workflows/bildirim.yml";
+function checkAdmin(){
+  if(isAdmin !== null || !user || !fb || !fb.getDocs) return;
+  isAdmin = false;
+  fb.getDocs(fb.query(fb.collection(fb.db, "users"), fb.limit(1))).then(function(){
+    isAdmin = true; loadAdmin();
+  }).catch(function(){ isAdmin = false; });
+}
+function loadAdmin(){
+  if(!isAdmin || adminLoading) return;
+  adminLoading = true; adminErr = ""; renderAdmin();
+  fb.getDocs(fb.collection(fb.db, "users")).then(function(snap){
+    adminData = snap.docs.map(function(d){
+      var v = d.data(), st = null;
+      try{ st = normalize(JSON.parse(v.data)); }catch(e){ st = null; }
+      return {uid:d.id, name:v.name || "", email:v.email || "", updatedAt:+v.updatedAt || 0, st:st};
+    }).filter(function(x){ return x.st; });
+  }).catch(function(e){ adminErr = errText(e) || "Okunamadı."; }).then(function(){ adminLoading = false; renderAdmin(); });
+}
+function statsFor(st){
+  var weeks = st.settings.weeks, t = todayIso();
+  var off = function(date, sidv){ return st.offs.some(function(o){ return o.date === date && (!o.sid || o.sid === sidv); }); };
+  var courses = st.courses.map(function(c){
+    var w = c.sessions.reduce(function(a,s){ return a + (+s.h||0); },0);
+    var u = st.entries.filter(function(e){ return e.code === c.code && !(e.sid && off(e.date, e.sid)); }).reduce(function(a,e){ return a + (+e.hours||0); },0);
+    return {c:c, w:w, u:u, lim:w*weeks, rem:w*weeks - u};
+  });
+  var exams = [];
+  st.courses.forEach(function(c){ (c.exams || []).forEach(function(x){ var dd = dayDiff(t, x.date); if(dd >= 0 && dd <= 14) exams.push({c:c, x:x, dd:dd}); }); });
+  exams.sort(function(a,b){ return a.dd - b.dd; });
+  return {
+    courses: courses, weeks: weeks, exams: exams,
+    total: courses.reduce(function(a,x){ return a + x.u; },0),
+    risky: courses.filter(function(x){ return x.w && x.rem <= x.w; }).length,
+    over: courses.filter(function(x){ return x.w && x.rem < 0; }).length,
+    recent: st.entries.slice().sort(function(a,b){ return a.date < b.date ? 1 : -1; }).slice(0, 8)
+  };
+}
+function agoText(ms){
+  if(!ms) return "hiç eşitlenmemiş";
+  var m = Math.floor((Date.now() - ms) / 60000);
+  if(m < 60) return m <= 1 ? "az önce" : m + " dk önce";
+  var h = Math.floor(m / 60); if(h < 24) return h + " saat önce";
+  return Math.floor(h / 24) + " gün önce";
+}
+function barK(u, w, k){
+  var bar = el("div",{class:"bar","aria-hidden":"true"});
+  for(var g=0; g<k; g++){
+    var wk = el("div",{class:"wk" + (g===k-1 ? " z2" : (g===k-2 && k>2) ? " z1" : "")});
+    for(var i=0;i<w;i++) wk.appendChild(el("span",{class:"cell" + (g*w + i < u ? " on" : "")}));
+    bar.appendChild(wk);
+  }
+  if(u > w*k) bar.appendChild(el("span",{class:"overflow",text:"+" + (u - w*k)}));
+  return bar;
+}
+function renderAdmin(){
+  var box = document.getElementById("adminBox"); if(!box) return;
+  box.hidden = !isAdmin;
+  if(!isAdmin) return;
+  box.textContent = "";
+  var head = el("div",{class:"ahead"},[ el("h2",{text:"Yönetici paneli"}),
+    el("button",{class:"del",type:"button",text: adminLoading ? "…" : "Yenile",onclick:function(){ loadAdmin(); }}) ]);
+  box.appendChild(head);
+  box.appendChild(el("p",{class:"hint",style:"margin-top:0",text:"Salt okunur. Kimsenin kaydını buradan değiştiremezsin."}));
+  if(adminErr){ box.appendChild(el("p",{class:"hint err",text:adminErr})); return; }
+  if(!adminData){ box.appendChild(el("p",{class:"hint",text:"Yükleniyor…"})); return; }
+
+  /* tek kişinin detayı */
+  if(adminSel){
+    var p = adminData.filter(function(x){ return x.uid === adminSel; })[0];
+    if(!p){ adminSel = null; renderAdmin(); return; }
+    var S = statsFor(p.st);
+    box.appendChild(el("button",{class:"ghost",type:"button",style:"margin-top:4px",text:"← Listeye dön",onclick:function(){ adminSel = null; renderAdmin(); }}));
+    box.appendChild(el("div",{class:"auser"},[ el("b",{text:p.name || p.email || "İsimsiz"}), el("span",{class:"sl",text:(p.name ? p.email + ", " : "") + "son eşitleme " + agoText(p.updatedAt)}) ]));
+    if(!S.courses.length) box.appendChild(el("p",{class:"hint",text:"Henüz ders eklememiş."}));
+    S.courses.slice().sort(function(a,b){ return (a.w ? a.rem : 999) - (b.w ? b.rem : 999); }).forEach(function(x){
+      var cls = !x.w ? "" : x.rem < 0 ? " over" : x.rem <= x.w ? " z2" : x.rem <= 2*x.w ? " z1" : "";
+      var row = el("div",{class:"arow"},[
+        el("div",{class:"top"},[ el("div",{class:"cname"},[ el("b",{text:x.c.name}), title(x.c) ? el("span",{text:title(x.c)}) : null ]),
+          el("span",{class:"r" + cls,text: x.w ? (x.rem < 0 ? "limit aşıldı" : x.rem + " saat kaldı") : "program yok"}) ])
+      ]);
+      if(x.w) row.appendChild(barK(x.u, x.w, S.weeks));
+      box.appendChild(row);
+    });
+    if(S.exams.length){
+      box.appendChild(el("p",{class:"flabel",style:"margin:14px 0 4px",text:"Yaklaşan sınavları (14 gün)"}));
+      S.exams.forEach(function(r){ box.appendChild(el("p",{class:"aline"},[ el("b",{text:r.c.name}), " " + r.x.type + ", " + ddText(r.dd) ])); });
+    }
+    if(S.recent.length){
+      box.appendChild(el("p",{class:"flabel",style:"margin:14px 0 4px",text:"Son devamsızlıkları"}));
+      var byCode = {}; p.st.courses.forEach(function(c){ byCode[c.code] = c; });
+      S.recent.forEach(function(e){ box.appendChild(el("p",{class:"aline"},[ el("b",{text:fmt(e.date)}), " " + (byCode[e.code] ? byCode[e.code].name : "silinmiş ders") + ", " + e.hours + " saat" ])); });
+    }
+    return;
+  }
+
+  /* liste */
+  var list = adminData.map(function(p){ return {p:p, S:statsFor(p.st)}; });
+  list.sort(function(a,b){ return (b.S.over - a.S.over) || (b.S.risky - a.S.risky) || (b.S.total - a.S.total); });
+  var week = Date.now() - 7*86400000;
+  var active = list.filter(function(x){ return x.p.updatedAt >= week; }).length;
+  var riskyPeople = list.filter(function(x){ return x.S.risky; }).length;
+  box.appendChild(el("div",{class:"astats"},[
+    el("div",null,[ el("b",{text:String(list.length)}), el("span",{text:"kullanıcı"}) ]),
+    el("div",null,[ el("b",{text:String(active)}), el("span",{text:"son 7 günde aktif"}) ]),
+    el("div",null,[ el("b",{class: riskyPeople ? "red" : "",text:String(riskyPeople)}), el("span",{text:"riskli dersi olan"}) ])
+  ]));
+  list.forEach(function(x){
+    var p = x.p, S = x.S;
+    var badge = S.over ? el("span",{class:"abadge red",text:S.over + " ders aşıldı"})
+      : S.risky ? el("span",{class:"abadge amber",text:S.risky + " riskli ders"})
+      : el("span",{class:"abadge",text:S.total + " saat"});
+    box.appendChild(el("button",{class:"srow",type:"button",onclick:function(){ adminSel = p.uid; renderAdmin(); document.getElementById("adminBox").scrollIntoView({block:"start"}); }},[
+      el("div",{class:"top"},[
+        el("div",{class:"cname"},[ el("b",{text:p.name || p.email || "İsimsiz"}), el("span",{text:(p.email && p.name ? p.email + ", " : "") + S.courses.length + " ders, " + agoText(p.updatedAt)}) ]),
+        badge
+      ])
+    ]));
+  });
+  box.appendChild(el("a",{class:"ghost alink",href:ACTIONS_URL,target:"_blank",rel:"noopener",text:"Herkese bildirim gönder (GitHub)"}));
+}
+
 /* ---------- sekmeler ---------- */
 var TABS = ["today","prog","courses","cal","more"];
 var TITLES = {today:"Devamsızlık", prog:"Program", courses:"Dersler", cal:"Takvim", more:"Diğer"};
@@ -1756,7 +1905,7 @@ function render(){
     renderAdd();
   }
   if(tab === "cal") renderCalendar();
-  if(tab === "more"){ renderSettings(); renderPush(); }
+  if(tab === "more"){ renderSettings(); renderPush(); checkAdmin(); renderAdmin(); }
   document.getElementById("ruleLine").textContent = "Limit = haftalık ders saati × " + W() + " hafta. 1 kutu = 1 ders saati.";
 }
 
@@ -1930,6 +2079,7 @@ function renderAccount(){
     return;
   }
   body.appendChild(el("p",{class:"st"},[ "Giriş: ", el("b",{text:user.email||"Google hesabı"}) ]));
+  body.appendChild(el("p",{class:"st",text:"Kayıtların ve e-postan, uygulamayı yayınlayan kişinin yönetici ekranında görünür."}));
   body.appendChild(el("p",{class:"st"+(cloudErr?" err":""),text:cloudMsg||"Eşitleniyor…"}));
   body.appendChild(el("button",{class:"ghost",type:"button",text:"Şimdi eşitle",onclick:function(){ syncNow(); }}));
   body.appendChild(el("button",{class:"ghost"+(signOutArmed?" danger":""),type:"button",
@@ -1964,7 +2114,10 @@ function syncNow(){
     var merged = remote ? merge(state, remote) : state;
     if(canon(merged) !== canon(state)){ state = merged; persistLocal(); render(); }
     if(!remote || canon(merged) !== canon(remote)){
-      return fb.setDoc(ref, {data: JSON.stringify(merged), updatedAt: Date.now()});
+      var payload = {data: JSON.stringify(merged), updatedAt: Date.now()};
+      if(user.displayName) payload.name = String(user.displayName).slice(0, 80);
+      if(user.email) payload.email = String(user.email);
+      return fb.setDoc(ref, payload);
     }
   }).then(function(){
     ok = true;
@@ -2019,6 +2172,7 @@ function doSignOut(){
 function onUser(u){
   user = u || null;
   cloudMsg = ""; cloudErr = false; signOutArmed = false;
+  isAdmin = null; adminData = null; adminSel = null; adminErr = "";
   if(user){
     var owner = getOwner();
     if(owner && owner !== user.uid){
@@ -2050,7 +2204,8 @@ function loadCloud(){
     var app = m[0].initializeApp(FB_CONFIG);
     var auth = m[1].getAuth(app);
     auth.languageCode = "tr";
-    fb = {app:app, auth:auth, authM:m[1], db:m[2].getFirestore(app), getDoc:m[2].getDoc, setDoc:m[2].setDoc, doc:m[2].doc, deleteDoc:m[2].deleteDoc};
+    fb = {app:app, auth:auth, authM:m[1], db:m[2].getFirestore(app), getDoc:m[2].getDoc, setDoc:m[2].setDoc, doc:m[2].doc, deleteDoc:m[2].deleteDoc,
+          collection:m[2].collection, getDocs:m[2].getDocs, query:m[2].query, limit:m[2].limit};
     cloudLoaded = true; cloudLoading = false;
     m[1].getRedirectResult(auth).catch(function(e){ var t = errText(e); if(t){ gateMsg = t; if(!user) showGate("signin"); } });
     m[1].onAuthStateChanged(auth, onUser);
