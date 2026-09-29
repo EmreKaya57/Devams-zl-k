@@ -41,7 +41,7 @@
   --amber:#E9AE2E; --amber-t:#3A2F14; --red:#F0645A; --red-t:#3E1C1A;
   --accent:#6C9BFF; --accent-ink:#0E1420;
 }
-*,*::before,*::after{box-sizing:inherit}
+*,*::before,*::after{box-sizing:border-box}
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%}
 .wrap{max-width:620px;margin:0 auto;padding:20px 16px 40px}
@@ -110,7 +110,7 @@ h2{font-family:var(--cond);font-weight:600;font-size:20px;margin:0 0 2px}
 .field{display:flex;flex-direction:column;gap:4px;min-width:0}
 .field.full{grid-column:1/-1}
 .field label,.flabel{font-size:13px;color:var(--muted)}
-input[type=date],input[type=text],input[type=number],select{
+input[type=date],input[type=time],input[type=text],input[type=number],select{
   width:100%;min-width:0;height:44px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:8px 12px;font-size:14px;cursor:pointer}
@@ -150,6 +150,49 @@ footer{margin-top:22px;color:var(--muted);font-size:13px}
 footer p{margin:4px 0}
 
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+[hidden]{display:none!important}
+.hint{font-size:14px;color:var(--muted);margin:8px 0 0}
+.hint.err{color:var(--red)}
+.occ{list-style:none;margin:12px 0 0;padding:0}
+.occ li{display:flex;align-items:center;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.occ li:first-child{border-top:0}
+.occ label{display:flex;align-items:center;gap:12px;flex:1;min-width:0;cursor:pointer;position:relative}
+.occ input{position:absolute;opacity:0;pointer-events:none}
+.occ input:checked + .tick{background:var(--red);border-color:var(--red)}
+.occ input:checked + .tick svg{opacity:1}
+.occ input:focus-visible + .tick{outline:2px solid var(--accent);outline-offset:2px}
+.occ .oi{flex:1;min-width:0}
+.occ .oi b{font-weight:600;font-size:15px}
+.occ .oi span{display:block;color:var(--muted);font-size:13px}
+.mini{display:flex;align-items:center;border:1px solid var(--line);border-radius:8px;height:34px;overflow:hidden;flex:none}
+.mini button{width:32px;height:100%;border:0;background:none;font-size:18px;cursor:pointer}
+.mini output{min-width:44px;text-align:center;font-family:var(--cond);font-weight:600;font-size:15px}
+.ohrs{font-family:var(--cond);font-weight:600;color:var(--muted);white-space:nowrap;flex:none}
+.more{margin-top:10px;width:100%;height:40px;border:1px dashed var(--line);border-radius:8px;background:none;cursor:pointer;color:var(--muted)}
+.daychips{display:flex;flex-wrap:wrap;gap:6px}
+.daychips .chip{min-width:48px;text-align:center}
+.preview{font-family:var(--cond);font-weight:600;font-size:17px;margin:10px 0 0}
+.pending{list-style:none;padding:0;margin:10px 0 0}
+.pending li{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--line);font-size:15px}
+.builder{border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:12px;background:var(--bg)}
+.builder select,.builder input{background:var(--panel)}
+.builder .stepper{background:var(--panel)}
+.builder .chip{background:var(--panel)}
+.builder .chip[aria-pressed="true"]{background:var(--ink);color:var(--panel)}
+.section{padding:14px}
+.section summary{font-family:var(--cond);font-weight:600;font-size:19px;color:var(--ink);list-style:none;display:flex;justify-content:space-between;align-items:center}
+.section summary::-webkit-details-marker{display:none}
+.section summary::after{content:"+";font-size:22px;color:var(--muted)}
+.section[open] summary::after{content:"–"}
+.section details{margin-top:0}
+.week{margin-top:12px}
+.week h3{font-family:var(--cond);font-weight:600;font-size:16px;margin:0 0 4px}
+.week p{margin:0;padding:4px 0;border-top:1px solid var(--line);font-size:15px;display:flex;justify-content:space-between;gap:10px}
+.week p span{color:var(--muted);white-space:nowrap}
+.emptybox{padding:18px 14px}
+.emptybox p{margin:6px 0 0;color:var(--muted)}
+.row2{display:flex;gap:10px;margin-top:10px}
+.row2 > *{flex:1}
 </style>
 </head>
 <body>
@@ -178,29 +221,27 @@ footer p{margin:4px 0}
   </div>
   <div class="panel courses" id="courses"></div>
 
-  <div class="panel addcourse">
-    <details id="addCourseBox">
-      <summary>Ders ekle</summary>
-      <div class="fgrid">
-        <div class="field"><label for="ncCode">Kod</label><input id="ncCode" type="text" placeholder="MAK217" autocomplete="off"></div>
-        <div class="field"><label for="ncName">Ad</label><input id="ncName" type="text" placeholder="Dersin adı" autocomplete="off"></div>
-      </div>
-      <button class="primary" id="ncAdd" type="button">Dersi ekle</button>
-      <p class="msg" id="ncMsg"></p>
-    </details>
-  </div>
+  <div class="panel" id="addPanel" style="margin-top:14px"></div>
 
-  <div class="panel addcourse">
-    <details>
-      <summary>Yedek</summary>
-      <p class="sub" style="margin-top:10px">Kayıtlar sadece bu telefonda. Uygulamayı silersen veya tarayıcı verilerini temizlersen gider. Arada yedeği kopyalayıp bir yere yapıştır.</p>
-      <button class="ghost" id="bkCopy" type="button">Yedeği kopyala</button>
-      <div class="field" style="margin-top:10px"><label for="bkText">Yedek metni</label>
-        <textarea id="bkText" rows="3" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font:inherit;font-size:13px;color:inherit"></textarea></div>
-      <button class="ghost" id="bkLoad" type="button">Yedeği geri yükle</button>
-      <p class="msg" id="bkMsg" style="color:var(--muted)"></p>
-    </details>
-  </div>
+  <details class="panel section" id="progPanel" style="margin-top:14px">
+    <summary>Haftalık program</summary>
+    <div id="progBody"></div>
+  </details>
+
+  <details class="panel section" id="setPanel" style="margin-top:14px">
+    <summary>Ayarlar</summary>
+    <div id="setBody"></div>
+  </details>
+
+  <details class="panel section" style="margin-top:14px">
+    <summary>Elle yedek</summary>
+    <p class="sub" style="margin-top:10px">Google ile giriş yaptıysan gerek yok. Yapmadıysan arada yedeği kopyalayıp bir yere yapıştır.</p>
+    <button class="ghost" id="bkCopy" type="button">Yedeği kopyala</button>
+    <div class="field" style="margin-top:10px"><label for="bkText">Yedek metni</label>
+      <textarea id="bkText" rows="3" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font:inherit;font-size:13px;color:inherit"></textarea></div>
+    <button class="ghost" id="bkLoad" type="button">Yedeği geri yükle</button>
+    <p class="msg" id="bkMsg" style="color:var(--muted)"></p>
+  </details>
 
   <div class="panel acct" id="acct">
     <h2>Bulut yedeği</h2>
@@ -208,47 +249,56 @@ footer p{margin:4px 0}
   </div>
 
   <footer>
-    <p>Limit = haftalık ders saati × 4 hafta. 1 kutu = 1 ders saati.</p>
+    <p id="ruleLine"></p>
     <p id="syncState"></p>
   </footer>
 </div>
-
 <script>
 (function(){
 "use strict";
-var WEEKS = 4;
 var DAYS = ["Paz","Pzt","Sal","Çar","Per","Cum","Cmt"];
 var DAYS_LONG = ["Pazar","Pazartesi","Salı","Çarşamba","Perşembe","Cuma","Cumartesi"];
+var DAY_ORDER = [1,2,3,4,5,6,0];
 var LS_KEY = "devamsizlik-v1";
 
 function sid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function clamp(n,a,b){ n = parseInt(n,10); if(isNaN(n)) n = a; return Math.max(a, Math.min(b, n)); }
+function pad(n){ return (n<10?"0":"") + n; }
 
+/* ---------- saat ---------- */
+function toMin(s){ var p = String(s||"").split(":"); return (+p[0]||0)*60 + (+p[1]||0); }
+function fromMin(m){ m = ((m % 1440) + 1440) % 1440; return pad(Math.floor(m/60)) + ":" + pad(m%60); }
+function span(start, end){ return start + "–" + end; }
+/* süreye göre ders saati tahmini: 165 dk -> 3, 105 dk -> 2 (kullanıcı değiştirebilir) */
+function suggestHours(start, end){ var m = toMin(end) - toMin(start); return Math.max(1, Math.min(8, Math.round(m/60))); }
+
+/* ---------- durum ---------- */
 function defaults(){
-  return {
-    v:1,
-    courses:[
-      {code:"MAK201",name:"Diferansiyel Denklemler",sessions:[{id:"s201a",d:2,t:"15:15–17:00",h:2},{id:"s201b",d:3,t:"08:15–10:00",h:2}]},
-      {code:"MAK203",name:"Malzeme Bilimi",sessions:[{id:"s203a",d:1,t:"10:15–12:00",h:2},{id:"s203b",d:2,t:"13:15–15:00",h:2}]},
-      {code:"MAK205",name:"Elektrik ve Elektronik Müh. Prensipleri",sessions:[{id:"s205",d:3,t:"13:15–16:00",h:3}]},
-      {code:"MAK207",name:"Mukavemet I",sessions:[{id:"s207",d:2,t:"09:15–12:00",h:3}]},
-      {code:"MAK209",name:"Dinamik",sessions:[{id:"s209",d:4,t:"13:15–16:00",h:3}]},
-      {code:"MAK211",name:"Termodinamik I",sessions:[{id:"s211",d:1,t:"13:15–16:00",h:3}]},
-      {code:"MAK213",name:"Ölçme Tekniği ve Değerlendirme",sessions:[{id:"s213",d:3,t:"10:15–12:00",h:2}]},
-      {code:"MAK215",name:"İmal Usulleri",sessions:[{id:"s215",d:4,t:"09:15–12:00",h:3}]}
-    ],
-    entries:[],
-    delE:{}, delC:{}, updatedAt:0
-  };
+  return {v:2, courses:[], entries:[], delE:{}, delC:{}, settings:{weeks:4, start:"", su:0}, updatedAt:0};
 }
-
 function normalize(d){
   var s = JSON.parse(JSON.stringify(d || {}));
   if(!Array.isArray(s.courses)) s = defaults();
   if(!Array.isArray(s.entries)) s.entries = [];
-  s.courses.forEach(function(c){ if(!Array.isArray(c.sessions)) c.sessions = []; });
+  s.courses.forEach(function(c){
+    if(!Array.isArray(c.sessions)) c.sessions = [];
+    if(typeof c.name !== "string") c.name = c.code || "Ders";
+    c.sessions.forEach(function(x){
+      x.h = clamp(x.h, 1, 8);
+      var parts = x.t ? String(x.t).split(/[–-]/) : [];
+      if(!x.s && parts[0]) x.s = parts[0].trim();
+      if(!x.e && parts[1]) x.e = parts[1].trim();
+      if(!x.s) x.s = "08:00";
+      if(!x.e) x.e = fromMin(toMin(x.s) + x.h*60);
+      x.t = span(x.s, x.e);
+    });
+  });
   if(!s.delE || typeof s.delE !== "object") s.delE = {};
   if(!s.delC || typeof s.delC !== "object") s.delC = {};
+  var st = s.settings || {};
+  s.settings = {weeks: clamp(st.weeks || 4, 1, 10), start: typeof st.start === "string" ? st.start : "", su: +st.su || 0};
   if(typeof s.updatedAt !== "number") s.updatedAt = 0;
+  s.v = 2;
   return s;
 }
 
@@ -258,15 +308,20 @@ try{
   state = raw ? normalize(JSON.parse(raw)) : defaults();
 }catch(e){ state = defaults(); }
 
-var openCode = null;
-var drafts = {};
-var armed = null;
+var openCode = null, armed = null;
+var drafts = {};      /* telafi formu */
+var builders = {};    /* oturum ekleme formları */
+var newCourse = {name:"", code:"", sessions:[]};
+var showAll = {};
+var openDetails = {};
+function keepOpen(det, key, def){
+  if(openDetails[key] === undefined ? def : openDetails[key]) det.setAttribute("open","");
+  det.addEventListener("toggle", function(){ openDetails[key] = det.open; });
+  return det;
+}
 
 /* ---------- tarih ---------- */
-function iso(dt){
-  var m = dt.getMonth()+1, d = dt.getDate();
-  return dt.getFullYear() + "-" + (m<10?"0":"") + m + "-" + (d<10?"0":"") + d;
-}
+function iso(dt){ return dt.getFullYear() + "-" + pad(dt.getMonth()+1) + "-" + pad(dt.getDate()); }
 function parseIso(s){ var p = s.split("-"); return new Date(+p[0], +p[1]-1, +p[2]); }
 function fmt(s){
   var dt = parseIso(s);
@@ -274,12 +329,40 @@ function fmt(s){
   catch(e){ return s; }
 }
 function todayIso(){ return iso(new Date()); }
+function dayDiff(a, b){ return Math.round((parseIso(b) - parseIso(a)) / 86400000); }
+function weekNo(date){
+  if(!state.settings.start) return 0;
+  var d = dayDiff(state.settings.start, date);
+  return d < 0 ? 0 : Math.floor(d/7) + 1;
+}
 
 /* ---------- hesaplar ---------- */
+function W(){ return state.settings.weeks; }
+function title(c){ return c.code && c.code.charAt(0) !== "_" ? c.code : ""; }
+function label(c){ var t = title(c); return t ? t + " " + c.name : c.name; }
 function weekly(c){ return c.sessions.reduce(function(a,s){ return a + (+s.h||0); },0); }
 function used(c){ return state.entries.filter(function(e){ return e.code===c.code; }).reduce(function(a,e){ return a + (+e.hours||0); },0); }
 function course(code){ for(var i=0;i<state.courses.length;i++) if(state.courses[i].code===code) return state.courses[i]; return null; }
-function zone(u,w){ if(!w) return 0; if(u > w*WEEKS) return 3; if(u > w*3) return 2; if(u > w*2) return 1; return 0; }
+function zone(u,w){ var k = W(); if(!w) return 0; if(u > w*k) return 3; if(u > w*(k-1)) return 2; if(k > 2 && u > w*(k-2)) return 1; return 0; }
+function sortedSessions(c){
+  return c.sessions.slice().sort(function(a,b){ return DAY_ORDER.indexOf(+a.d) - DAY_ORDER.indexOf(+b.d) || toMin(a.s) - toMin(b.s); });
+}
+
+/* dersin bugüne kadarki tüm oturumları, en yeniden eskiye */
+function occurrences(c){
+  var today = parseIso(todayIso()), from;
+  if(state.settings.start){ from = parseIso(state.settings.start); }
+  else { from = new Date(today); from.setDate(from.getDate() - 41); }
+  var min = new Date(today); min.setDate(min.getDate() - 200);
+  if(from < min) from = min;
+  var out = [];
+  for(var d = new Date(from); d <= today; d.setDate(d.getDate()+1)){
+    var dow = d.getDay(), di = iso(d);
+    c.sessions.forEach(function(s){ if(+s.d === dow) out.push({date:di, s:s}); });
+  }
+  out.sort(function(a,b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : toMin(b.s.s) - toMin(a.s.s); });
+  return out;
+}
 
 /* ---------- kayıt ---------- */
 function persistLocal(){
@@ -292,16 +375,18 @@ function save(){
   scheduleSync(1500);
 }
 
-/* iki kaydı birleştir: silinenler mezar taşıyla hatırlanır, hiçbir kayıt kaybolmaz */
 function merge(a, b){
   var delE = {}, delC = {}, k;
   [a.delE, b.delE].forEach(function(o){ for(k in o) delE[k] = Math.max(delE[k]||0, o[k]); });
   [a.delC, b.delC].forEach(function(o){ for(k in o) delC[k] = Math.max(delC[k]||0, o[k]); });
-  var seen = {}, entries = [];
+  var byId = {}, ids = [];
   a.entries.concat(b.entries).forEach(function(e){
-    if(seen[e.id] || (e.id in delE)) return;
-    seen[e.id] = 1; entries.push(e);
+    if(e.id in delE) return;
+    var ex = byId[e.id];
+    if(!ex){ byId[e.id] = e; ids.push(e.id); }
+    else if((e.u||0) > (ex.u||0)) byId[e.id] = e;
   });
+  var entries = ids.map(function(i){ return byId[i]; });
   entries.sort(function(x,y){ return x.date < y.date ? 1 : x.date > y.date ? -1 : (x.id < y.id ? -1 : x.id > y.id ? 1 : 0); });
   var newer = (a.updatedAt||0) >= (b.updatedAt||0) ? a : b, older = newer === a ? b : a;
   var byCode = {}, order = [];
@@ -313,7 +398,8 @@ function merge(a, b){
   var courses = order.map(function(code){ return byCode[code]; }).filter(function(c){
     return !(c.code in delC) || (c.addedAt||0) > delC[c.code];
   });
-  return normalize({v:1, courses:courses, entries:entries, delE:delE, delC:delC,
+  var settings = (a.settings.su||0) >= (b.settings.su||0) ? a.settings : b.settings;
+  return normalize({v:2, courses:courses, entries:entries, delE:delE, delC:delC, settings:settings,
     updatedAt: Math.max(a.updatedAt||0, b.updatedAt||0)});
 }
 function stable(v){
@@ -321,11 +407,11 @@ function stable(v){
   if(v && typeof v === "object") return "{" + Object.keys(v).sort().map(function(k){ return JSON.stringify(k) + ":" + stable(v[k]); }).join(",") + "}";
   return JSON.stringify(v);
 }
-function canon(s){ return stable({c:s.courses, e:s.entries, de:s.delE, dc:s.delC}); }
+function canon(s){ return stable({c:s.courses, e:s.entries, de:s.delE, dc:s.delC, st:s.settings}); }
 
 /* ---------- işlemler ---------- */
 function addEntry(code, date, hours, sidv, note){
-  state.entries.push({id:sid(), code:code, date:date, hours:hours, sid:sidv||null, note:note||""});
+  state.entries.push({id:sid(), code:code, date:date, hours:hours, sid:sidv||null, note:note||"", u:Date.now()});
   state.entries.sort(function(a,b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
   save(); render();
 }
@@ -334,6 +420,7 @@ function removeEntry(id){
   state.delE[id] = Date.now();
   save(); render();
 }
+function setHours(e, h){ e.hours = h; e.u = Date.now(); save(); render(); }
 function findEntry(code, date, sidv){
   for(var i=0;i<state.entries.length;i++){
     var e = state.entries[i];
@@ -341,11 +428,13 @@ function findEntry(code, date, sidv){
   }
   return null;
 }
+function touchCourse(c){ c.u = Date.now(); }
 
-/* ---------- render ---------- */
+/* ---------- çizim yardımcıları ---------- */
 var el = function(tag, attrs, kids){
   var n = document.createElement(tag);
   if(attrs) for(var k in attrs){
+    if(attrs[k] == null) continue;
     if(k==="class") n.className = attrs[k];
     else if(k==="text") n.textContent = attrs[k];
     else if(k.slice(0,2)==="on") n.addEventListener(k.slice(2), attrs[k]);
@@ -355,72 +444,125 @@ var el = function(tag, attrs, kids){
   return n;
 };
 var CHECK = '<svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg>';
+function tickBox(){ var t = el("span",{class:"tick"}); t.innerHTML = CHECK; return t; }
+function mini(value, min, max, onChange, unit){
+  var out = el("output",{text: value + (unit||"")});
+  return el("div",{class:"mini"},[
+    el("button",{type:"button","aria-label":"Azalt",text:"−",onclick:function(ev){ ev.preventDefault(); if(value>min) onChange(value-1); }}),
+    out,
+    el("button",{type:"button","aria-label":"Artır",text:"+",onclick:function(ev){ ev.preventDefault(); if(value<max) onChange(value+1); }})
+  ]);
+}
 
+/* ---------- oturum ekleme formu ---------- */
+function sessionBuilder(key, existing, onAdd, buttonText){
+  var b = builders[key] || (builders[key] = {d:null, s:"", e:"", h:2, hTouched:false, msg:""});
+  var box = el("div",{class:"builder"});
+  function redraw(){ box.replaceWith(sessionBuilder(key, existing, onAdd, buttonText)); }
+  function timesChanged(){
+    b.msg = "";
+    if(!b.hTouched && b.s && b.e && toMin(b.e) > toMin(b.s)) b.h = suggestHours(b.s, b.e);
+    redraw();
+  }
+  var chips = el("div",{class:"daychips",role:"group","aria-label":"Gün"});
+  DAY_ORDER.forEach(function(d){
+    chips.appendChild(el("button",{class:"chip",type:"button","aria-pressed":String(b.d===d),text:DAYS[d],onclick:function(){
+      b.d = d; b.msg = ""; redraw();
+    }}));
+  });
+  var sIn = el("input",{type:"time",id:"bs-"+key,step:"60"}); sIn.value = b.s;
+  var eIn = el("input",{type:"time",id:"be-"+key,step:"60"}); eIn.value = b.e;
+  sIn.addEventListener("change", function(){ b.s = sIn.value; timesChanged(); });
+  eIn.addEventListener("change", function(){ b.e = eIn.value; timesChanged(); });
+  box.appendChild(el("span",{class:"flabel",text:"Gün"}));
+  box.appendChild(chips);
+  box.appendChild(el("div",{class:"fgrid"},[
+    el("div",{class:"field"},[ el("label",{for:"bs-"+key,text:"Başlangıç"}), sIn ]),
+    el("div",{class:"field"},[ el("label",{for:"be-"+key,text:"Bitiş"}), eIn ]),
+    el("div",{class:"field full"},[ el("span",{class:"flabel",text:"Yoklamada kaç ders saati sayılıyor"}),
+      el("div",{class:"stepper"},[
+        el("button",{type:"button","aria-label":"Azalt",text:"−",onclick:function(){ if(b.h>1){ b.h--; b.hTouched = true; b.msg = ""; redraw(); } }}),
+        el("output",{text:b.h + " ders saati"}),
+        el("button",{type:"button","aria-label":"Artır",text:"+",onclick:function(){ if(b.h<8){ b.h++; b.hTouched = true; b.msg = ""; redraw(); } }})
+      ]) ])
+  ]));
+  var ok = b.d!==null && b.s && b.e && toMin(b.e) > toMin(b.s);
+  box.appendChild(el("p",{class:"preview",text: ok ? DAYS_LONG[b.d] + " " + span(b.s, b.e) + ", " + b.h + " ders saati" : "Gün, başlangıç ve bitişi seç"}));
+  box.appendChild(el("p",{class:"hint",text:"Ders saati, devamsızlığın kaç saat yazıldığıdır. Saatlere göre tahmin edilir, okulunda farklıysa değiştir."}));
+  box.appendChild(el("button",{class:"ghost",type:"button",text:buttonText,onclick:function(){
+    if(b.d===null){ b.msg = "Önce gün seç."; redraw(); return; }
+    if(!b.s || !b.e){ b.msg = "Başlangıç ve bitiş saatini gir."; redraw(); return; }
+    if(toMin(b.e) <= toMin(b.s)){ b.msg = "Bitiş saati başlangıçtan sonra olmalı."; redraw(); return; }
+    var a0 = toMin(b.s), a1 = toMin(b.e);
+    var clash = (existing || []).filter(function(x){
+      return +x.d === b.d && a0 < toMin(x.e) && toMin(x.s) < a1;
+    })[0];
+    if(clash){ b.msg = "Bu saatle çakışan bir oturum zaten var (" + DAYS_LONG[clash.d] + " " + clash.t + ")."; redraw(); return; }
+    var sess = {id:sid(), d:b.d, s:b.s, e:b.e, h:b.h, t:span(b.s, b.e)};
+    b.d = null; b.hTouched = false; b.msg = "";
+    onAdd(sess);
+  }}));
+  if(b.msg) box.appendChild(el("p",{class:"hint err",text:b.msg}));
+  return box;
+}
+
+/* ---------- Bugün ---------- */
 function renderToday(){
   var box = document.getElementById("todayList");
   box.textContent = "";
   var t = todayIso(), dow = new Date().getDay();
   document.getElementById("todayDate").textContent = fmt(t);
+  if(!state.courses.length){ box.appendChild(el("p",{class:"empty",text:"Önce aşağıdan derslerini ekle."})); return; }
   var rows = [];
   state.courses.forEach(function(c){
     c.sessions.forEach(function(s){ if(+s.d === dow) rows.push({c:c,s:s}); });
   });
-  rows.sort(function(a,b){ return a.s.t < b.s.t ? -1 : 1; });
+  rows.sort(function(a,b){ return toMin(a.s.s) - toMin(b.s.s); });
   if(!rows.length){ box.appendChild(el("p",{class:"empty",text:"Bugün dersin yok."})); return; }
   rows.forEach(function(r){
     var ex = findEntry(r.c.code, t, r.s.id);
-    var input = el("input",{type:"checkbox","aria-label":r.c.code+" "+r.c.name+" bugün kaçırıldı"});
+    var input = el("input",{type:"checkbox","aria-label":label(r.c)+" bugün kaçırıldı"});
     input.checked = !!ex;
     input.addEventListener("change", function(){
       if(input.checked){ addEntry(r.c.code, t, +r.s.h, r.s.id, ""); }
       else { var e = findEntry(r.c.code, t, r.s.id); if(e) removeEntry(e.id); }
     });
-    var tick = el("span",{class:"tick"}); tick.innerHTML = CHECK;
     box.appendChild(el("label",{class:"trow"},[
-      input, tick,
-      el("div",{class:"tinfo"},[ el("b",{text:r.c.code+" "+r.c.name}), el("span",{text:r.s.t}) ]),
-      el("div",{class:"thours",text:r.s.h+" saat"})
+      input, tickBox(),
+      el("div",{class:"tinfo"},[ el("b",{text:label(r.c)}), el("span",{text:r.s.t}) ]),
+      el("div",{class:"thours",text:(ex ? ex.hours : r.s.h)+" saat"})
     ]));
   });
 }
 
-function renderBar(c, u, w){
-  var bar = el("div",{class:"bar","aria-hidden":"true"});
-  for(var g=0; g<WEEKS; g++){
-    var wk = el("div",{class:"wk" + (g===2?" z1":g===3?" z2":"")});
-    for(var i=0;i<w;i++){
-      var idx = g*w + i;
-      wk.appendChild(el("span",{class:"cell" + (idx < u ? " on" : "")}));
-    }
+/* ---------- ders kartı ---------- */
+function renderBar(u, w){
+  var k = W(), bar = el("div",{class:"bar","aria-hidden":"true"});
+  for(var g=0; g<k; g++){
+    var z = g===k-1 ? " z2" : (g===k-2 && k>2) ? " z1" : "";
+    var wk = el("div",{class:"wk" + z});
+    for(var i=0;i<w;i++) wk.appendChild(el("span",{class:"cell" + (g*w + i < u ? " on" : "")}));
     bar.appendChild(wk);
   }
-  if(u > w*WEEKS) bar.appendChild(el("span",{class:"overflow",text:"+"+(u-w*WEEKS)}));
+  if(u > w*k) bar.appendChild(el("span",{class:"overflow",text:"+"+(u-w*k)}));
   return bar;
 }
 
 function renderCourse(c){
-  var w = weekly(c), u = used(c), lim = w*WEEKS, rem = lim - u, z = zone(u,w);
+  var w = weekly(c), u = used(c), lim = w*W(), rem = lim - u, z = zone(u,w);
   var isOpen = openCode === c.code;
   var wrap = el("div",{class:"course" + (isOpen?" open":"")});
-
-  var leftBox;
-  if(w){
-    leftBox = el("div",{class:"left" + (z===3?" over":z===2?" z2":z===1?" z1":"")},[
-      el("span",{class:"n",text: String(Math.max(rem,0))}),
-      el("span",{class:"u",text:"saat kaldı"})
-    ]);
-  } else {
-    leftBox = el("div",{class:"left"},[ el("span",{class:"n",text:"–"}), el("span",{class:"u",text:u? u+" saat kaçtı":"limit yok"}) ]);
-  }
-
+  var leftBox = w
+    ? el("div",{class:"left" + (z===3?" over":z===2?" z2":z===1?" z1":"")},[ el("span",{class:"n",text:String(Math.max(rem,0))}), el("span",{class:"u",text:"saat kaldı"}) ])
+    : el("div",{class:"left"},[ el("span",{class:"n",text:"–"}), el("span",{class:"u",text:u ? u+" saat kaçtı" : "program yok"}) ]);
+  var t = title(c);
   var head = el("button",{class:"chead",type:"button","aria-expanded":String(isOpen),onclick:function(){
     openCode = isOpen ? null : c.code; armed = null; render();
   }},[
-    el("div",{class:"ctop"},[ el("div",{class:"cname"},[ el("b",{text:c.code}), el("span",{text:c.name}) ]), leftBox ])
+    el("div",{class:"ctop"},[ el("div",{class:"cname"},[ el("b",{text:t || c.name}), t ? el("span",{text:c.name}) : null ]), leftBox ])
   ]);
-
   if(w){
-    head.appendChild(renderBar(c,u,w));
+    head.appendChild(renderBar(u,w));
     var maxS = Math.max.apply(null, c.sessions.map(function(s){ return +s.h||0; }));
     var info;
     if(z===3) info = el("span",{class:"warn",text:"Limit "+(u-lim)+" saat aşıldı"});
@@ -428,143 +570,243 @@ function renderCourse(c){
     else info = el("span",{text: Math.floor(rem/maxS) + " ders günü daha kaçırabilirsin"});
     head.appendChild(el("div",{class:"meta"},[ info, el("span",{text:u+" / "+lim+" saat"}) ]));
   } else {
-    head.appendChild(el("div",{class:"noprog",text:"Programını ekle, limit hesaplansın"}));
+    head.appendChild(el("div",{class:"noprog",text:"Gün ve saatini ekle, limit hesaplansın"}));
   }
   wrap.appendChild(head);
-  wrap.appendChild(renderDetail(c, w));
+  var d = el("div",{class:"detail"});
+  if(isOpen) fillDetail(d, c, w);
+  wrap.appendChild(d);
   return wrap;
 }
 
-function renderDetail(c, w){
-  var d = el("div",{class:"detail"});
-  if(openCode !== c.code) return d;
-
-  var dr = drafts[c.code] || (drafts[c.code] = {date: todayIso(), sid:null, hours:null, note:""});
-  function sessionFor(date){
-    var dow = parseIso(date).getDay();
-    for(var i=0;i<c.sessions.length;i++) if(+c.sessions[i].d===dow) return c.sessions[i];
-    return null;
-  }
-  if(dr.sid===null && dr.hours===null){
-    var s0 = sessionFor(dr.date);
-    dr.sid = s0 ? s0.id : (c.sessions[0] ? c.sessions[0].id : null);
-    dr.hours = s0 ? +s0.h : (c.sessions[0] ? +c.sessions[0].h : 1);
-  }
-  function maxHours(){
-    for(var i=0;i<c.sessions.length;i++) if(c.sessions[i].id===dr.sid) return +c.sessions[i].h;
-    return 8;
-  }
-
-  var dateIn = el("input",{type:"date",id:"dt-"+c.code});
-  dateIn.value = dr.date;
-  var chips = el("div",{class:"chips",role:"group","aria-label":"Hangi ders"});
-  var out = el("output",{text:String(dr.hours)});
-  var msg = el("p",{class:"msg"});
-
-  function paintChips(){
-    chips.textContent = "";
-    c.sessions.forEach(function(s){
-      chips.appendChild(el("button",{class:"chip",type:"button","aria-pressed":String(dr.sid===s.id),onclick:function(){
-        dr.sid = s.id; dr.hours = +s.h; out.textContent = dr.hours; paintChips();
-      },text: DAYS[s.d]+" "+s.t.split("–")[0]+", "+s.h+" s"}));
+function fillDetail(d, c, w){
+  /* 1) geçmiş oturumlar: kutucukla işaretle */
+  if(c.sessions.length){
+    var occ = occurrences(c);
+    d.appendChild(el("p",{class:"hint",text: state.settings.start
+      ? "Dönem başından bugüne bu dersin tüm günleri. Girmediklerini işaretle."
+      : "Son 6 haftadaki ders günleri. Tüm dönem için Ayarlar'dan dönem başlangıcını gir."}));
+    var limit = showAll[c.code] ? occ.length : Math.min(occ.length, 8);
+    var ul = el("ul",{class:"occ"});
+    occ.slice(0, limit).forEach(function(o){
+      var ex = findEntry(c.code, o.date, o.s.id);
+      var input = el("input",{type:"checkbox","aria-label":fmt(o.date)+" kaçırıldı"});
+      input.checked = !!ex;
+      input.addEventListener("change", function(){
+        if(input.checked) addEntry(c.code, o.date, +o.s.h, o.s.id, "");
+        else if(ex) removeEntry(ex.id);
+      });
+      var wn = weekNo(o.date);
+      var li = el("li",null,[
+        el("label",null,[ input, tickBox(),
+          el("div",{class:"oi"},[ el("b",{text:fmt(o.date)}), el("span",{text: o.s.t + (wn ? ", " + wn + ". hafta" : "") + (o.date===todayIso() ? ", bugün" : "")}) ]) ])
+      ]);
+      if(ex && +o.s.h > 1) li.appendChild(mini(+ex.hours, 1, +o.s.h, function(v){ setHours(ex, v); }, " s"));
+      else li.appendChild(el("span",{class:"ohrs",text:o.s.h+" saat"}));
+      ul.appendChild(li);
     });
+    if(!occ.length) d.appendChild(el("p",{class:"none",text:"Henüz bu dersin günü gelmedi."}));
+    d.appendChild(ul);
+    if(occ.length > limit) d.appendChild(el("button",{class:"more",type:"button",text:"Daha eski "+(occ.length-limit)+" günü göster",onclick:function(){ showAll[c.code] = true; render(); }}));
   }
-  dateIn.addEventListener("change", function(){
-    if(!dateIn.value) return;
-    dr.date = dateIn.value;
-    var s = sessionFor(dr.date);
-    if(s){ dr.sid = s.id; dr.hours = +s.h; out.textContent = dr.hours; paintChips(); }
-    msg.textContent = "";
-  });
 
-  var stepper = el("div",{class:"stepper"},[
-    el("button",{type:"button","aria-label":"Azalt",text:"−",onclick:function(){ if(dr.hours>1){ dr.hours--; out.textContent = dr.hours; } }}),
-    out,
-    el("button",{type:"button","aria-label":"Artır",text:"+",onclick:function(){ if(dr.hours<maxHours()){ dr.hours++; out.textContent = dr.hours; } }})
-  ]);
-  var noteIn = el("input",{type:"text",placeholder:"İsteğe bağlı, ör. rapor",autocomplete:"off",id:"nt-"+c.code});
+  /* 2) telafi / programda olmayan gün */
+  var tel = keepOpen(el("details",null,[ el("summary",{text:"Programda olmayan bir gün ekle (telafi dersi)"}) ]), "tel:"+c.code, false);
+  var dr = drafts[c.code] || (drafts[c.code] = {date: todayIso(), hours: 1, note:"", msg:""});
+  var dateIn = el("input",{type:"date",id:"dt-"+c.code,max:todayIso()});
+  dateIn.value = dr.date;
+  dateIn.addEventListener("change", function(){ dr.date = dateIn.value; });
+  var hOut = el("output",{text:String(dr.hours)});
+  var noteIn = el("input",{type:"text",placeholder:"İsteğe bağlı, ör. telafi",autocomplete:"off",id:"nt-"+c.code});
   noteIn.value = dr.note;
   noteIn.addEventListener("input", function(){ dr.note = noteIn.value; });
-
-  var grid = el("div",{class:"fgrid"},[
+  var tmsg = el("p",{class:"msg",text:dr.msg});
+  tel.appendChild(el("div",{class:"fgrid"},[
     el("div",{class:"field"},[ el("label",{for:"dt-"+c.code,text:"Tarih"}), dateIn ]),
-    el("div",{class:"field"},[ el("span",{class:"flabel",text:"Kaçırdığın saat"}), stepper ])
-  ]);
-  if(c.sessions.length > 1) grid.appendChild(el("div",{class:"field full"},[ el("span",{class:"flabel",text:"Hangi ders"}), chips ]));
-  grid.appendChild(el("div",{class:"field full"},[ el("label",{for:"nt-"+c.code,text:"Not"}), noteIn ]));
-  d.appendChild(grid);
-  paintChips();
-
-  d.appendChild(el("button",{class:"primary",type:"button",text:"Devamsızlık ekle",onclick:function(){
-    if(!dr.date){ msg.textContent = "Tarih seç."; return; }
-    if(dr.sid && findEntry(c.code, dr.date, dr.sid)){ msg.textContent = "Bu ders bu tarihte zaten kayıtlı."; return; }
-    addEntry(c.code, dr.date, dr.hours, dr.sid, dr.note.trim());
+    el("div",{class:"field"},[ el("span",{class:"flabel",text:"Kaçırdığın saat"}),
+      el("div",{class:"stepper"},[
+        el("button",{type:"button","aria-label":"Azalt",text:"−",onclick:function(){ if(dr.hours>1){ dr.hours--; hOut.textContent = dr.hours; } }}),
+        hOut,
+        el("button",{type:"button","aria-label":"Artır",text:"+",onclick:function(){ if(dr.hours<8){ dr.hours++; hOut.textContent = dr.hours; } }})
+      ]) ]),
+    el("div",{class:"field full"},[ el("label",{for:"nt-"+c.code,text:"Not"}), noteIn ])
+  ]));
+  tel.appendChild(el("button",{class:"primary",type:"button",text:"Devamsızlık ekle",onclick:function(){
+    if(!dr.date){ tmsg.textContent = "Tarih seç."; return; }
+    if(dr.date > todayIso()){ tmsg.textContent = "İleri tarihli devamsızlık girilemez."; return; }
+    var dow = parseIso(dr.date).getDay();
+    if(c.sessions.some(function(s){ return +s.d === dow; })){
+      tmsg.textContent = DAYS_LONG[dow] + " zaten bu dersin günü. Yukarıdaki listeden işaretle.";
+      return;
+    }
+    addEntry(c.code, dr.date, dr.hours, null, (dr.note || "telafi").trim());
     drafts[c.code] = null;
   }}));
-  d.appendChild(msg);
+  tel.appendChild(tmsg);
+  d.appendChild(tel);
 
-  var list = state.entries.filter(function(e){ return e.code===c.code; });
-  if(!list.length){ d.appendChild(el("p",{class:"none",text:"Henüz devamsızlık yok."})); }
-  else {
-    var ul = el("ul",{class:"entries"});
-    list.forEach(function(e){
+  /* 3) telafi ve eski kayıtlar listesi */
+  var extras = state.entries.filter(function(e){
+    if(e.code !== c.code) return false;
+    if(!e.sid) return true;
+    var s = c.sessions.filter(function(x){ return x.id === e.sid; })[0];
+    return !s;
+  });
+  if(extras.length){
+    var ul2 = el("ul",{class:"entries"});
+    extras.forEach(function(e){
       var isArmed = armed === e.id;
-      ul.appendChild(el("li",null,[
-        el("div",{class:"d"},[ el("b",{text:fmt(e.date)}), e.note ? el("span",{text:e.note}) : null ]),
+      ul2.appendChild(el("li",null,[
+        el("div",{class:"d"},[ el("b",{text:fmt(e.date)}), el("span",{text:e.note || "programdan silinmiş bir oturum"}) ]),
         el("div",{class:"h",text:e.hours+" saat"}),
         el("button",{class:"del"+(isArmed?" arm":""),type:"button","aria-label":isArmed?"Silmeyi onayla":"Sil",text:isArmed?"Sil":"×",onclick:function(){
           if(isArmed){ armed = null; removeEntry(e.id); } else { armed = e.id; render(); }
         }})
       ]));
     });
-    d.appendChild(ul);
+    d.appendChild(el("p",{class:"hint",text:"Listede görünmeyen kayıtlar:"}));
+    d.appendChild(ul2);
   }
 
-  /* program düzenleme */
-  var det = el("details",null,[ el("summary",{text: c.sessions.length ? "Programı düzenle" : "Programını ekle"}) ]);
-  if(!c.sessions.length) det.setAttribute("open","");
+  /* 4) program ve ders ayarları */
+  var det = keepOpen(el("details",null,[ el("summary",{text: c.sessions.length ? "Dersi düzenle" : "Gün ve saat ekle"}) ]), "edit:"+c.code, !c.sessions.length);
   var sul = el("ul",{class:"sess"});
-  c.sessions.forEach(function(s){
+  sortedSessions(c).forEach(function(s){
+    var used = state.entries.some(function(e){ return e.sid === s.id; });
     sul.appendChild(el("li",null,[
       el("span",{text: DAYS_LONG[s.d]+" "+s.t+", "+s.h+" saat"}),
-      el("button",{class:"del",type:"button","aria-label":"Oturumu kaldır",text:"×",onclick:function(){
-        c.sessions = c.sessions.filter(function(x){ return x.id!==s.id; }); c.u = Date.now(); save(); render();
+      el("button",{class:"del"+(armed==="s:"+s.id?" arm":""),type:"button","aria-label":"Oturumu kaldır",text:armed==="s:"+s.id?"Kaldır":"×",onclick:function(){
+        if(used && armed !== "s:"+s.id){ armed = "s:"+s.id; render(); return; }
+        armed = null;
+        c.sessions = c.sessions.filter(function(x){ return x.id!==s.id; }); touchCourse(c); save(); render();
       }})
     ]));
   });
   det.appendChild(sul);
-  var daySel = el("select",{id:"sd-"+c.code});
-  [1,2,3,4,5,6,0].forEach(function(i){ daySel.appendChild(el("option",{value:String(i),text:DAYS_LONG[i]})); });
-  var timeIn = el("input",{type:"text",placeholder:"13:15–16:00",id:"st-"+c.code,autocomplete:"off"});
-  var hIn = el("input",{type:"number",min:"1",max:"8",value:"2",id:"sh-"+c.code,inputmode:"numeric"});
-  var smsg = el("p",{class:"msg"});
-  det.appendChild(el("div",{class:"fgrid"},[
-    el("div",{class:"field"},[ el("label",{for:"sd-"+c.code,text:"Gün"}), daySel ]),
-    el("div",{class:"field"},[ el("label",{for:"sh-"+c.code,text:"Ders saati"}), hIn ]),
-    el("div",{class:"field full"},[ el("label",{for:"st-"+c.code,text:"Saat aralığı"}), timeIn ])
-  ]));
-  det.appendChild(el("button",{class:"ghost",type:"button",text:"Oturum ekle",onclick:function(){
-    var h = parseInt(hIn.value,10);
-    if(!(h>=1 && h<=8)){ smsg.textContent = "Ders saati 1 ile 8 arası olmalı."; return; }
-    c.sessions.push({id:sid(), d:+daySel.value, t:(timeIn.value.trim()||"saat girilmedi").replace("-","–"), h:h});
-    c.u = Date.now();
-    drafts[c.code] = null; save(); render();
+  det.appendChild(sessionBuilder("c:"+c.code, c.sessions, function(s){
+    c.sessions.push(s); touchCourse(c); save(); render();
+  }, "Bu günü ekle"));
+
+  var nameIn = el("input",{type:"text",value:c.name,autocomplete:"off",id:"nm-"+c.code});
+  det.appendChild(el("div",{class:"field",style:"margin-top:12px"},[ el("label",{for:"nm-"+c.code,text:"Ders adı"}), nameIn ]));
+  det.appendChild(el("button",{class:"ghost",type:"button",text:"Adı kaydet",onclick:function(){
+    var v = nameIn.value.trim(); if(!v || v === c.name) return;
+    c.name = v; touchCourse(c); save(); render();
   }}));
-  det.appendChild(smsg);
-  {
-    det.appendChild(el("button",{class:"ghost danger",type:"button",text:"Dersi kaldır",onclick:function(){
-      if(armed === "course:"+c.code){
-        var now = Date.now();
-        state.courses = state.courses.filter(function(x){ return x.code!==c.code; });
-        state.entries.forEach(function(e){ if(e.code===c.code) state.delE[e.id] = now; });
-        state.entries = state.entries.filter(function(e){ return e.code!==c.code; });
-        state.delC[c.code] = now;
-        armed = null; openCode = null; save(); render();
-      } else { armed = "course:"+c.code; this.textContent = "Emin misin? Kayıtları da silinir, tekrar bas"; }
+  det.appendChild(el("button",{class:"ghost danger",type:"button",
+    text: armed === "course:"+c.code ? "Emin misin? Kayıtları da silinir, tekrar bas" : "Dersi kaldır",
+    onclick:function(){
+      if(armed !== "course:"+c.code){ armed = "course:"+c.code; render(); return; }
+      var now = Date.now();
+      state.courses = state.courses.filter(function(x){ return x.code!==c.code; });
+      state.entries.forEach(function(e){ if(e.code===c.code) state.delE[e.id] = now; });
+      state.entries = state.entries.filter(function(e){ return e.code!==c.code; });
+      state.delC[c.code] = now;
+      armed = null; openCode = null; save(); render();
     }}));
-  }
   d.appendChild(det);
-  return d;
+}
+
+/* ---------- ders ekleme ---------- */
+function renderAdd(){
+  var box = document.getElementById("addPanel");
+  box.textContent = "";
+  var empty = !state.courses.length;
+  var wrap = keepOpen(el("details",{class:"section",style:"margin:0"},[ el("summary",{text:"Ders ekle"}) ]), "add", empty);
+  if(newCourse.sessions.length || newCourse.name) wrap.setAttribute("open","");
+  if(empty) wrap.appendChild(el("p",{class:"sub",style:"margin-top:8px",text:"Her ders için adını, haftanın hangi günü ve saatinde olduğunu gir. Limit kendiliğinden hesaplanır."}));
+  var nameIn = el("input",{type:"text",placeholder:"ör. Diferansiyel Denklemler",autocomplete:"off",id:"ncName",value:newCourse.name});
+  var codeIn = el("input",{type:"text",placeholder:"ör. MAK201",autocomplete:"off",id:"ncCode",value:newCourse.code});
+  nameIn.addEventListener("input", function(){ newCourse.name = nameIn.value; });
+  codeIn.addEventListener("input", function(){ newCourse.code = codeIn.value; });
+  wrap.appendChild(el("div",{class:"fgrid"},[
+    el("div",{class:"field full"},[ el("label",{for:"ncName",text:"Ders adı"}), nameIn ]),
+    el("div",{class:"field full"},[ el("label",{for:"ncCode",text:"Ders kodu (isteğe bağlı)"}), codeIn ])
+  ]));
+  if(newCourse.sessions.length){
+    var ul = el("ul",{class:"pending"});
+    newCourse.sessions.forEach(function(s, i){
+      ul.appendChild(el("li",null,[ el("span",{text:DAYS_LONG[s.d]+" "+s.t+", "+s.h+" saat"}),
+        el("button",{class:"del",type:"button","aria-label":"Kaldır",text:"×",onclick:function(){ newCourse.sessions.splice(i,1); renderAdd(); }}) ]));
+    });
+    wrap.appendChild(ul);
+  }
+  wrap.appendChild(sessionBuilder("new", newCourse.sessions, function(s){ newCourse.sessions.push(s); renderAdd(); },
+    newCourse.sessions.length ? "Bir gün daha ekle" : "Bu günü ekle"));
+  var msg = el("p",{class:"msg"});
+  wrap.appendChild(el("button",{class:"primary",type:"button",text:"Dersi kaydet",onclick:function(){
+    var name = newCourse.name.trim();
+    var code = newCourse.code.trim().toUpperCase().replace(/\s+/g,"");
+    if(!name && !code){ msg.textContent = "Ders adını yaz."; return; }
+    if(!newCourse.sessions.length){ msg.textContent = "En az bir gün ekle. Dersin hangi gün olduğunu bilmeden limit hesaplanamaz."; return; }
+    var key = code || ("_" + sid());
+    if(course(key)){ msg.textContent = code + " zaten listede."; return; }
+    var t = Date.now();
+    state.courses.push({code:key, name:name || code, sessions:newCourse.sessions, custom:true, addedAt:t, u:t});
+    newCourse = {name:"", code:"", sessions:[]};
+    builders["new"] = null;
+    openCode = null; save(); render();
+  }}));
+  wrap.appendChild(msg);
+  box.appendChild(wrap);
+}
+
+/* ---------- haftalık program ---------- */
+function renderProgram(){
+  var body = document.getElementById("progBody");
+  body.textContent = "";
+  var any = false;
+  DAY_ORDER.forEach(function(d){
+    var rows = [];
+    state.courses.forEach(function(c){ c.sessions.forEach(function(s){ if(+s.d===d) rows.push({c:c,s:s}); }); });
+    if(!rows.length) return;
+    any = true;
+    rows.sort(function(a,b){ return toMin(a.s.s) - toMin(b.s.s); });
+    var w = el("div",{class:"week"},[ el("h3",{text:DAYS_LONG[d]}) ]);
+    rows.forEach(function(r){ w.appendChild(el("p",null,[ label(r.c), el("span",{text:r.s.t}) ])); });
+    body.appendChild(w);
+  });
+  if(!any) body.appendChild(el("p",{class:"hint",text:"Ders ekleyince programın burada görünür."}));
+  var total = state.courses.reduce(function(a,c){ return a + weekly(c); },0);
+  if(total) body.appendChild(el("p",{class:"hint",text:"Haftada toplam " + total + " ders saati."}));
+  body.appendChild(el("button",{class:"ghost",type:"button",text:"Durumu paylaş",onclick:shareSummary}));
+  body.appendChild(el("p",{class:"hint",id:"shareMsg"}));
+}
+
+function shareSummary(){
+  var lines = ["Devamsızlık durumu, " + fmt(todayIso())];
+  state.courses.forEach(function(c){
+    var w = weekly(c), u = used(c);
+    lines.push(label(c) + ": " + u + (w ? " / " + (w*W()) + " saat, kalan " + Math.max(w*W()-u,0) : " saat"));
+  });
+  var text = lines.join("\n");
+  var m = document.getElementById("shareMsg");
+  if(navigator.share){ navigator.share({text:text}).catch(function(){}); return; }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(function(){ m.textContent = "Kopyalandı."; }, function(){ m.textContent = text; });
+  } else m.textContent = text;
+}
+
+/* ---------- ayarlar ---------- */
+function renderSettings(){
+  var body = document.getElementById("setBody");
+  body.textContent = "";
+  var st = state.settings;
+  var startIn = el("input",{type:"date",id:"stStart",value:st.start});
+  startIn.addEventListener("change", function(){
+    st.start = startIn.value || ""; st.su = Date.now(); save(); render();
+  });
+  body.appendChild(el("div",{class:"field",style:"margin-top:12px"},[ el("label",{for:"stStart",text:"Dönem başlangıcı (ilk ders günü)"}), startIn ]));
+  body.appendChild(el("p",{class:"hint",text:"Girersen ders listelerinde dönemin tüm günleri ve hafta numaraları görünür."}));
+  body.appendChild(el("div",{class:"field",style:"margin-top:14px"},[
+    el("span",{class:"flabel",text:"Devamsızlık hakkı (hafta)"}),
+    el("div",{class:"stepper"},[
+      el("button",{type:"button","aria-label":"Azalt",text:"−",onclick:function(){ if(st.weeks>1){ st.weeks--; st.su = Date.now(); save(); render(); } }}),
+      el("output",{text:st.weeks + " hafta"}),
+      el("button",{type:"button","aria-label":"Artır",text:"+",onclick:function(){ if(st.weeks<10){ st.weeks++; st.su = Date.now(); save(); render(); } }})
+    ])
+  ]));
+  body.appendChild(el("p",{class:"hint",text:"Limit = dersin haftalık saati × bu sayı. Okulunun kuralı farklıysa değiştir (ör. %30 kuralında 14 haftalık dönem için 4)."}));
 }
 
 function renderRisk(){
@@ -572,11 +814,11 @@ function renderRisk(){
   state.courses.forEach(function(c){
     var w = weekly(c), u = used(c);
     if(!w || !u) return;
-    var r = w*WEEKS - u;
+    var r = w*W() - u;
     if(!best || r < best.r) best = {c:c, r:r};
   });
   document.getElementById("risk").textContent = best
-    ? (best.r < 0 ? best.c.code+" limiti aştı" : "En az hak: "+best.c.code+", "+best.r+" saat")
+    ? (best.r < 0 ? (title(best.c)||best.c.name)+" limiti aştı" : "En az hak: "+(title(best.c)||best.c.name)+", "+best.r+" saat")
     : "";
 }
 
@@ -585,30 +827,17 @@ function render(){
   renderRisk();
   var box = document.getElementById("courses");
   box.textContent = "";
+  if(!state.courses.length){
+    box.appendChild(el("div",{class:"emptybox"},[ el("b",{text:"Henüz ders yok."}), el("p",{text:"Aşağıdaki Ders ekle kısmından başla."}) ]));
+  }
   state.courses.forEach(function(c){ box.appendChild(renderCourse(c)); });
+  renderAdd();
+  renderProgram();
+  renderSettings();
+  document.getElementById("ruleLine").textContent = "Limit = haftalık ders saati × " + W() + " hafta. 1 kutu = 1 ders saati.";
 }
 
-/* yeni ders */
-document.getElementById("ncAdd").addEventListener("click", function(){
-  var code = document.getElementById("ncCode").value.trim().toUpperCase().replace(/\s+/g,"");
-  var name = document.getElementById("ncName").value.trim();
-  var m = document.getElementById("ncMsg");
-  if(!code){ m.textContent = "Kod gir."; return; }
-  if(course(code)){ m.textContent = code+" zaten listede."; return; }
-  var t = Date.now();
-  state.courses.push({code:code, name:name||code, sessions:[], custom:true, addedAt:t, u:t});
-  document.getElementById("ncCode").value = ""; document.getElementById("ncName").value = "";
-  m.textContent = ""; document.getElementById("addCourseBox").removeAttribute("open");
-  openCode = code; save(); render();
-});
-
-render();
-
-/* gün değişince bugün listesini yenile */
-var lastDay = todayIso();
-setInterval(function(){ if(todayIso() !== lastDay){ lastDay = todayIso(); render(); } }, 60000);
-
-/* yedek */
+/* ---------- elle yedek ---------- */
 var bkMsg = document.getElementById("bkMsg");
 document.getElementById("bkCopy").addEventListener("click", function(){
   var txt = JSON.stringify(state);
@@ -625,8 +854,8 @@ document.getElementById("bkLoad").addEventListener("click", function(){
   try{
     var d = JSON.parse(ta.value);
     if(!d || !Array.isArray(d.courses) || !Array.isArray(d.entries)) throw new Error("x");
-    if(!btn.dataset.arm){ btn.dataset.arm = "1"; btn.textContent = "Şu anki kayıtların silinip yedek gelecek. Tekrar bas"; return; }
-    state = normalize(d); state.updatedAt = Date.now(); delete btn.dataset.arm; btn.textContent = "Yedeği geri yükle";
+    if(!btn.dataset.arm){ btn.dataset.arm = "1"; btn.textContent = "Şu anki kayıtların yedekle birleşecek. Tekrar bas"; return; }
+    state = merge(state, normalize(d)); state.updatedAt = Date.now(); delete btn.dataset.arm; btn.textContent = "Yedeği geri yükle";
     ta.value = ""; save(); render(); bkMsg.textContent = "Yedek yüklendi.";
   }catch(e){ bkMsg.textContent = "Bu metin geçerli bir yedek değil. Kopyaladığın metnin tamamını yapıştır."; }
 });
@@ -645,17 +874,17 @@ var fb = null, user = null, ref = null, cloudLoaded = false;
 var syncing = false, syncAgain = false, syncTimer = null;
 var cloudMsg = "", cloudErr = false, signOutArmed = false;
 
-function hhmm(d){ return (d.getHours()<10?"0":"") + d.getHours() + ":" + (d.getMinutes()<10?"0":"") + d.getMinutes(); }
+function hhmm(d){ return pad(d.getHours()) + ":" + pad(d.getMinutes()); }
 function setCloud(msg, err){ cloudMsg = msg; cloudErr = !!err; renderAccount(); }
 
 function errText(e){
   var c = (e && e.code) || "";
   if(c === "auth/popup-closed-by-user" || c === "auth/cancelled-popup-request") return "";
-  if(c === "auth/unauthorized-domain") return "Bu adres Firebase'de izinli değil. Authentication > Settings > Authorized domains kısmına emrekaya57.github.io eklenmeli.";
+  if(c === "auth/unauthorized-domain") return "Bu adres Firebase'de izinli değil.";
   if(c === "auth/operation-not-allowed") return "Google girişi Firebase'de açık değil.";
   if(c === "auth/network-request-failed" || c === "unavailable") return "İnternet yok. Bağlanınca tekrar dene.";
   if(c === "permission-denied") return "Buluta yazma izni yok. Firestore kuralları yayınlanmamış olabilir.";
-  if(c === "not-found") return "Firestore veritabanı bulunamadı. Firebase'de oluşturulmamış olabilir.";
+  if(c === "not-found") return "Firestore veritabanı bulunamadı.";
   return "Hata: " + (c || (e && e.message) || "bilinmiyor");
 }
 
@@ -763,7 +992,12 @@ window.addEventListener("online", function(){ syncNow(); });
 document.addEventListener("visibilitychange", function(){
   if(document.visibilityState === "visible"){ render(); syncNow(); }
 });
+
+render();
 renderAccount();
+
+var lastDay = todayIso();
+setInterval(function(){ if(todayIso() !== lastDay){ lastDay = todayIso(); render(); } }, 60000);
 
 /* çevrimdışı çalışma + kalıcı depolama */
 if("serviceWorker" in navigator){
