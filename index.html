@@ -287,6 +287,34 @@ footer p{margin:4px 0}
 .gnote{font-size:13px;margin-top:18px!important}
 body.gated{overflow:hidden}
 body.gated .tabbar{display:none}
+
+/* program: zaman çizelgesi */
+.pday{padding:12px 14px 12px}
+.phead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
+.phead h3{margin:0}
+.phead > span{font-size:13px;color:var(--muted);font-feature-settings:"tnum";white-space:nowrap}
+.pblk{display:grid;grid-template-columns:50px 6px 1fr;column-gap:12px;width:100%;text-align:left;
+  background:var(--bg);border:1px solid transparent;border-radius:12px;padding:10px 12px 10px 10px;cursor:pointer;margin-top:6px}
+.pblk:first-of-type{margin-top:0}
+.pblk.cur{background:color-mix(in srgb,var(--c) 12%,var(--panel));border-color:color-mix(in srgb,var(--c) 55%,transparent)}
+.pblk.past{opacity:.55}
+.pt{display:flex;flex-direction:column;justify-content:space-between;font-family:var(--cond);font-feature-settings:"tnum";line-height:1.1}
+.pt b{font-weight:700;font-size:18px;color:var(--ink)}
+.pt span{font-weight:500;font-size:15px;color:var(--muted)}
+.prail{position:relative;border-radius:3px;background:color-mix(in srgb,var(--c) 30%,transparent);overflow:hidden}
+.pblk:not(.cur) .prail{background:var(--c)}
+.pfill{position:absolute;left:0;right:0;top:0;background:var(--c)}
+.pc{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pn{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.pn b{font-weight:600;font-size:16px;line-height:1.25}
+.pn .tag{margin-left:0;margin-top:1px}
+.pm{color:var(--muted);font-size:13px}
+.pm .ico{margin-left:0}
+.pd{margin-top:auto;padding-top:4px;font-family:var(--cond);font-weight:600;font-size:13px;color:color-mix(in srgb,var(--c) 75%,var(--ink))}
+.gap{display:flex;align-items:center;gap:8px;margin:6px 0 0 62px;font-size:12px;color:var(--muted)}
+.gap::before,.gap::after{content:"";flex:1;border-top:1px dashed var(--line)}
+.gap::before{flex:0 0 10px}
+.gap.warn{color:var(--red)}
 </style>
 </head>
 <body>
@@ -1015,33 +1043,64 @@ function renderAdd(){
 }
 
 /* ---------- Program sekmesi ---------- */
+var PALETTE = ["#2F6FDE","#0F9D8A","#7B5CD6","#E07B24","#D6457A","#3E9B3E","#C99A12","#5A7AA0"];
+function courseColor(c){
+  var i = state.courses.indexOf(c);
+  return PALETTE[(i < 0 ? 0 : i) % PALETTE.length];
+}
+function durText(m){ var h = Math.floor(m/60), r = m % 60; return h ? (h + " sa" + (r ? " " + r + " dk" : "")) : r + " dk"; }
 function renderProgram(){
   var body = document.getElementById("progBody");
   body.textContent = "";
   var nc = nextCard(); if(nc) body.appendChild(nc);
   var info = nextInfo();
-  var now = new Date(), dow = now.getDay();
+  var now = new Date(), dow = now.getDay(), nm = now.getHours()*60 + now.getMinutes();
   var any = false;
   DAY_ORDER.forEach(function(d){
     var rows = allSessions().filter(function(x){ return +x.s.d === d; });
     if(!rows.length) return;
     any = true;
     rows.sort(function(a,b){ return toMin(a.s.s) - toMin(b.s.s); });
+    var hours = rows.reduce(function(a,x){ return a + (+x.s.h||0); },0);
     var sec = el("div",{class:"panel pday" + (d === dow ? " isToday" : "")},[
-      el("h3",null,[ DAYS_LONG[d], d === dow ? el("span",{class:"tag",text:"Bugün"}) : null ])
+      el("div",{class:"phead"},[
+        el("h3",null,[ DAYS_LONG[d], d === dow ? el("span",{class:"tag",text:"Bugün"}) : null ]),
+        el("span",{text: rows.length + " ders, " + rows[0].s.s + "–" + rows[rows.length-1].s.e})
+      ])
     ]);
-    rows.forEach(function(r){
-      var isCur = info && info.cur && info.cur.s.id === r.s.id;
-      var isNext = info && info.next && info.next.s.id === r.s.id;
-      var w = where(r.s), code = title(r.c);
-      sec.appendChild(el("button",{class:"prow" + (isCur ? " cur" : ""),type:"button",onclick:function(){ openCode = r.c.code; switchTab("courses"); }},[
-        el("div",{class:"ptime"},[ el("b",{text:r.s.s}), el("span",{text:r.s.e}) ]),
-        el("div",{class:"oi"},[
-          el("b",null,[ r.c.name, r.s.online ? onlineIcon() : null ]),
-          el("span",{text:[code, w, r.s.h + " ders saati"].filter(Boolean).join(", ")})
-        ]),
-        isCur ? el("span",{class:"tag",text:"Şu an"}) : isNext ? el("span",{class:"tag soft",text:"Sıradaki"}) : null
-      ]));
+    rows.forEach(function(r, i){
+      if(i > 0){
+        var gap = toMin(r.s.s) - toMin(rows[i-1].s.e);
+        if(gap >= 15) sec.appendChild(el("div",{class:"gap"},[ el("span",{text: durText(gap) + " ara"}) ]));
+        else if(gap < 0) sec.appendChild(el("div",{class:"gap warn"},[ el("span",{text:"Çakışıyor"}) ]));
+      }
+      var s0 = toMin(r.s.s), s1 = toMin(r.s.e), dur = Math.max(1, s1 - s0);
+      var isCur = d === dow && s0 <= nm && nm < s1;
+      var isNext = info && info.next && info.next.s.id === r.s.id && !isCur;
+      var isPast = d === dow && nm >= s1;
+      var color = courseColor(r.c), code = title(r.c), w = where(r.s);
+      var rail = el("div",{class:"prail"});
+      rail.style.setProperty("--c", color);
+      if(isCur){
+        var fill = el("div",{class:"pfill"});
+        fill.style.height = Math.round((nm - s0) / dur * 100) + "%";
+        rail.appendChild(fill);
+      }
+      var meta = [code, w, r.s.h + " ders saati"].filter(Boolean).join(", ");
+      var block = el("button",{class:"pblk" + (isCur ? " cur" : "") + (isPast ? " past" : ""),type:"button",
+        style:"min-height:" + Math.max(66, Math.round(dur * 0.55)) + "px",
+        onclick:function(){ openCode = r.c.code; switchTab("courses"); }},[
+        el("div",{class:"pt"},[ el("b",{text:r.s.s}), el("span",{text:r.s.e}) ]),
+        rail,
+        el("div",{class:"pc"},[
+          el("div",{class:"pn"},[ el("b",{text:r.c.name}),
+            isCur ? el("span",{class:"tag",text:"Şu an"}) : isNext ? el("span",{class:"tag soft",text:"Sıradaki"}) : null ]),
+          el("span",{class:"pm"},[ r.s.online ? onlineIcon() : null, meta ]),
+          el("span",{class:"pd",text: isCur ? "Bitişe " + durText(s1 - nm) : durText(dur)})
+        ])
+      ]);
+      block.style.setProperty("--c", color);
+      sec.appendChild(block);
     });
     body.appendChild(sec);
   });
