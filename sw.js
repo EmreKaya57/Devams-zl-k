@@ -1,4 +1,4 @@
-const CACHE = "devamsizlik-v2";
+const CACHE = "devamsizlik-v3";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
@@ -51,5 +51,29 @@ self.addEventListener("fetch", e => {
         return hit || net;
       })
     )
+  );
+});
+
+// Bildirim: gelen duyuruyu göster (iPhone her bildirimin gösterilmesini şart koşuyor)
+self.addEventListener("push", e => {
+  let p = {};
+  try { p = e.data ? e.data.json() : {}; } catch (_) { p = { data: { body: e.data ? e.data.text() : "" } }; }
+  const d = p.data || {}, n = p.notification || {};
+  const title = n.title || d.title || "Devamsızlık";
+  const body = n.body || d.body || "";
+  const url = d.url || "./";
+  e.waitUntil(self.registration.showNotification(title, {
+    body, icon: "icon-192.png", data: { url }, tag: "duyuru-" + (p.fcmMessageId || Date.now())
+  }));
+});
+
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || "./";
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
+      for (const c of list) { if ("focus" in c) return c.focus(); }
+      return self.clients.openWindow(url);
+    })
   );
 });

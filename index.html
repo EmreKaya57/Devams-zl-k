@@ -413,6 +413,10 @@ body.gated .tabbar{display:none}
   </section>
 
   <section class="tab" id="tab-more" hidden>
+    <div class="panel acct" id="notif" style="margin-top:0;margin-bottom:14px">
+      <h2>Bildirimler</h2>
+      <div id="notifBody"></div>
+    </div>
     <details class="panel section" id="setPanel" open>
       <summary>Ayarlar</summary>
       <div id="setBody"></div>
@@ -995,6 +999,7 @@ function renderToday(){
   var ib = importCard(); if(ib) nb.appendChild(ib);
   var card = nextCard(); if(card) nb.appendChild(card);
   var xc = examCard(); if(xc) nb.appendChild(xc);
+  var pc = pushCard(); if(pc) nb.insertBefore(pc, nb.firstChild);
   if(!state.courses.length){ box.appendChild(el("p",{class:"empty",text:"Önce Dersler sekmesinden derslerini ekle."})); return; }
   var rows = allSessions().filter(function(x){ return +x.s.d === dow; });
   rows.sort(function(a,b){ return toMin(a.s.s) - toMin(b.s.s); });
@@ -1751,7 +1756,7 @@ function render(){
     renderAdd();
   }
   if(tab === "cal") renderCalendar();
-  if(tab === "more") renderSettings();
+  if(tab === "more"){ renderSettings(); renderPush(); }
   document.getElementById("ruleLine").textContent = "Limit = haftalık ders saati × " + W() + " hafta. 1 kutu = 1 ders saati.";
 }
 
@@ -1788,6 +1793,89 @@ var FB_CONFIG = {
   appId: "1:109371052192:web:82ff27bf04ea1805d8b9c5"
 };
 var FB_BASE = "https://www.gstatic.com/firebasejs/12.19.0/";
+/* Firebase > Proje ayarları > Cloud Messaging > Web Push sertifikaları: genel anahtar (gizli değil) */
+var VAPID_KEY = "BLtcjv_MX3aHF7GIP-9XLLbyrJiu3PengQztvTf_L_u2TyB3v_b-ib738etRPB9dFaJcOD1wKVZC8JfCQZ6G1Wc";
+var PUSH_KEY = "devamsizlik-push-token", PUSH_HIDE = "devamsizlik-push-hide";
+var pushMsg = "", pushBusy = false;
+function pushToken(){ try{ return localStorage.getItem(PUSH_KEY) || ""; }catch(e){ return ""; } }
+function isIOS(){ var ua = navigator.userAgent || ""; return /iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1); }
+function isStandalone(){ return (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true; }
+function pushState(){
+  if(!VAPID_KEY) return "unset";
+  if(!("serviceWorker" in navigator) || !("Notification" in window) || !("PushManager" in window))
+    return isIOS() && !isStandalone() ? "ios-browser" : "unsupported";
+  if(Notification.permission === "denied") return "denied";
+  if(Notification.permission === "granted" && pushToken()) return "on";
+  return "off";
+}
+function pushOn(){
+  if(pushBusy) return;
+  if(!user || !fb){ pushMsg = "Önce giriş yap."; renderPush(); return; }
+  pushBusy = true; pushMsg = "Açılıyor…"; renderPush();
+  /* izin isteği dokunmanın hemen içinde olmalı (iPhone bunu şart koşuyor) */
+  Notification.requestPermission().then(function(perm){
+    if(perm !== "granted") throw {code:"perm"};
+    return Promise.all([ import(FB_BASE + "firebase-messaging.js"), navigator.serviceWorker.ready ]);
+  }).then(function(r){
+    var M = r[0], reg = r[1];
+    return M.isSupported().then(function(ok){
+      if(!ok) throw {code:"unsupported"};
+      return M.getToken(M.getMessaging(fb.app), {vapidKey: VAPID_KEY, serviceWorkerRegistration: reg});
+    });
+  }).then(function(token){
+    if(!token) throw {code:"notoken"};
+    var plat = isIOS() ? "ios" : /Android/.test(navigator.userAgent || "") ? "android" : "web";
+    return fb.setDoc(fb.doc(fb.db, "pushTokens", token), {uid:user.uid, createdAt:Date.now(), platform:plat}).then(function(){
+      try{ localStorage.setItem(PUSH_KEY, token); localStorage.setItem(PUSH_HIDE, "1"); }catch(e){}
+    });
+  }).then(function(){
+    pushMsg = "";
+  }).catch(function(e){
+    var c = e && e.code;
+    pushMsg = c === "perm" ? "İzin verilmedi. Açmak için telefon ayarlarından bu uygulamaya bildirim izni ver."
+      : c === "unsupported" ? "Bu tarayıcı bildirimi desteklemiyor."
+      : c === "permission-denied" ? "Kayıt reddedildi. Firestore kuralları güncel değil."
+      : "Açılamadı: " + (c || (e && e.message) || "bilinmeyen hata");
+  }).then(function(){ pushBusy = false; renderPush(); render(); });
+}
+/* bu cihazın kaydını sil; quiet=true iken sessiz */
+function pushOff(quiet){
+  var token = pushToken();
+  if(!token || !fb) return Promise.resolve();
+  var tasks = [];
+  if(user) tasks.push(fb.deleteDoc(fb.doc(fb.db, "pushTokens", token)).catch(function(){}));
+  tasks.push(import(FB_BASE + "firebase-messaging.js").then(function(M){ return M.deleteToken(M.getMessaging(fb.app)); }).catch(function(){}));
+  return Promise.all(tasks).then(function(){
+    try{ localStorage.removeItem(PUSH_KEY); }catch(e){}
+    if(!quiet){ pushMsg = "Bildirimler kapatıldı."; renderPush(); }
+  });
+}
+function renderPush(){
+  var body = document.getElementById("notifBody"); if(!body) return;
+  body.textContent = "";
+  var st = pushState();
+  var txt = {
+    "unset": "Bildirim sistemi henüz kurulmadı.",
+    "ios-browser": "iPhone'da bildirim için uygulamayı önce ana ekrana ekle, sonra ikondan açıp buradan bildirimleri aç.",
+    "unsupported": "Bu tarayıcı bildirimi desteklemiyor. Android'de Chrome kullan.",
+    "denied": "Bildirim izni kapalı. Açmak için telefon ayarlarından bu uygulamaya bildirim izni ver.",
+    "on": "Bildirimler açık. Duyurular bu telefona gelir.",
+    "off": "Duyurular telefonuna bildirim olarak gelsin. Bildirimi sadece uygulamayı yayınlayan kişi gönderebilir."
+  }[st];
+  body.appendChild(el("p",{class:"st",text:txt}));
+  if(st === "off") body.appendChild(el("button",{class:"primary",type:"button",text: pushBusy ? "Açılıyor…" : "Bildirimleri aç",onclick:pushOn}));
+  if(st === "on") body.appendChild(el("button",{class:"ghost",type:"button",text:"Bildirimleri kapat",onclick:function(){ pushOff(false).then(render); }}));
+  if(pushMsg && pushMsg !== txt) body.appendChild(el("p",{class:"st",text:pushMsg}));
+}
+function pushCard(){
+  if(pushState() !== "off" || !user) return null;
+  try{ if(localStorage.getItem(PUSH_HIDE) === "1") return null; }catch(e){}
+  return el("div",{class:"panel cloud"},[
+    el("p",{text:"Duyuruları kaçırmamak için bildirimleri aç."}),
+    el("button",{class:"gbtn",type:"button",text:"Aç",onclick:pushOn}),
+    el("button",{class:"del",type:"button","aria-label":"Kapat",text:"×",onclick:function(){ try{ localStorage.setItem(PUSH_HIDE, "1"); }catch(e){} render(); }})
+  ]);
+}
 var OWNER_KEY = "devamsizlik-owner";
 var fb = null, user = null, ref = null, cloudLoaded = false, cloudLoading = false;
 var syncing = false, syncAgain = false, syncTimer = null, syncPromise = null;
@@ -1918,11 +2006,13 @@ function doSignOut(){
       return;
     }
     signOutForce = false;
+    return pushOff(true).then(function(){
     setOwner("");
     state = defaults();
     try{ localStorage.removeItem(LS_KEY); }catch(e){}
     openCode = null; drafts = {}; builders = {}; newCourse = {name:"", code:"", sessions:[]};
     return fb.authM.signOut(fb.auth);
+    });
   }).then(function(){ render(); }).catch(function(){});
 }
 
@@ -1960,7 +2050,7 @@ function loadCloud(){
     var app = m[0].initializeApp(FB_CONFIG);
     var auth = m[1].getAuth(app);
     auth.languageCode = "tr";
-    fb = {auth:auth, authM:m[1], db:m[2].getFirestore(app), getDoc:m[2].getDoc, setDoc:m[2].setDoc, doc:m[2].doc};
+    fb = {app:app, auth:auth, authM:m[1], db:m[2].getFirestore(app), getDoc:m[2].getDoc, setDoc:m[2].setDoc, doc:m[2].doc, deleteDoc:m[2].deleteDoc};
     cloudLoaded = true; cloudLoading = false;
     m[1].getRedirectResult(auth).catch(function(e){ var t = errText(e); if(t){ gateMsg = t; if(!user) showGate("signin"); } });
     m[1].onAuthStateChanged(auth, onUser);
