@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Devamsızlık</title>
-<meta name="theme-color" content="#18212E">
+<meta name="theme-color" content="#26311C" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1F2818" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Devamsızlık">
@@ -14,7 +15,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
   --bg:#EDF0F3; --panel:#FFFFFF; --ink:#18212E; --muted:#5C6878; --line:#D5DBE3;
@@ -386,6 +387,83 @@ body.gated .tabbar{display:none}
 .arow .r.z1{color:var(--amber)} .arow .r.z2,.arow .r.over{color:var(--red)}
 .aline{margin:0;padding:6px 0;border-top:1px solid var(--line);font-size:14px}
 .alink{display:flex;align-items:center;justify-content:center;text-decoration:none;color:var(--ink);margin-top:14px}
+
+/* ================= Zeytin teması ================= */
+:root{
+  --bg:#EDEBE1; --panel:#FBFAF4; --ink:#1F2618; --muted:#6F7462; --line:#DEDBCB;
+  --steel:#4F6531; --cell:#E4E1D3;
+  --amber:#A8780F; --amber-t:#F2E6C4; --red:#D6582F; --red-t:#F6DACD;
+  --accent:#4F6531; --accent-ink:#FFFFFF;
+  --hdr:#26311C; --hdr-ink:#F6F5EC; --hdr-sub:#B9C3A5; --tabmuted:#A3AE8E; --tabon:#FF8F66;
+  --soft:#E6EAD8; --tickline:#A9B58E; --shadow:rgba(38,49,28,.30);
+  --body:"Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --cond:"Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --serif:"Young Serif", Georgia, "Times New Roman", serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#121510; --panel:#1B2017; --ink:#E9ECDF; --muted:#9CA48C; --line:#2D3425;
+    --steel:#A9C47A; --cell:#272D20;
+    --amber:#E0B04A; --amber-t:#3A3219; --red:#F07A55; --red-t:#40241A;
+    --accent:#A9C47A; --accent-ink:#121510;
+    --hdr:#1F2818; --hdr-ink:#F1F3E8; --hdr-sub:#9FAE86; --tabmuted:#8E9A7A; --tabon:#FF8F66;
+    --soft:#2A3321; --tickline:#56634A; --shadow:rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#121510; --panel:#1B2017; --ink:#E9ECDF; --muted:#9CA48C; --line:#2D3425;
+  --steel:#A9C47A; --cell:#272D20;
+  --amber:#E0B04A; --amber-t:#3A3219; --red:#F07A55; --red-t:#40241A;
+  --accent:#A9C47A; --accent-ink:#121510;
+  --hdr:#1F2818; --hdr-ink:#F1F3E8; --hdr-sub:#9FAE86; --tabmuted:#8E9A7A; --tabon:#FF8F66;
+  --soft:#2A3321; --tickline:#56634A; --shadow:rgba(0,0,0,.45);
+}
+/* başlık bandı: koyu zeytin, altı yumuşak kavis, kartlar üstüne biner */
+header{position:relative;margin:calc(-20px - env(safe-area-inset-top,0px)) -16px -16px;
+  padding:calc(24px + env(safe-area-inset-top,0px)) 20px 42px;background:var(--hdr);color:var(--hdr-ink);align-items:flex-end}
+header::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:22px;background:var(--bg);border-radius:50% 50% 0 0 / 100% 100% 0 0}
+header h1{color:var(--hdr-ink)}
+.today-date{color:var(--hdr-sub);font-family:var(--body);font-weight:500;font-size:15px}
+.tab{position:relative;z-index:1}
+/* yazı tipleri: başlıklar ve büyük sayılar serif */
+h1,h2,.section summary,.pday h3,.left .n,.xdd,.srow .r,.arow .r,.astats b,.auser b,.mhead,.calhead h2{font-family:var(--serif);font-weight:400}
+h1{font-size:30px;letter-spacing:0}
+h2{font-size:19px}
+.section summary{font-size:18px}
+.left .n{font-size:28px}
+.srow .r,.arow .r{font-size:16px}
+.xdd{font-size:19px}
+/* kartlar */
+.panel{border-radius:18px;border-color:var(--line);box-shadow:0 10px 24px -20px var(--shadow)}
+.courses{border-radius:18px}
+/* işaret kutuları: yuvarlak */
+.tick{border-radius:50%;border-color:var(--tickline)}
+.tick.dis{border-style:dashed}
+/* etiketler */
+.tag{font-family:var(--body);font-weight:700;background:var(--steel);color:var(--panel)}
+.tag.soft{background:var(--soft);color:var(--steel)}
+.abadge{font-family:var(--body);font-weight:700}
+/* çetele şeridi: yuvarlak şamandıralar */
+.wk{gap:3px}
+.cell{height:10px;border-radius:999px}
+.srow .cell{height:8px}
+.wk.z1 .cell,.wk.z2 .cell{box-shadow:none}
+/* alt bar: yüzen koyu zeytin */
+.tabbar{left:12px;right:12px;bottom:calc(10px + env(safe-area-inset-bottom,0px));border:0;border-radius:22px;
+  background:var(--hdr);padding:8px 6px;box-shadow:0 12px 30px -12px rgba(0,0,0,.45)}
+.tabbar button{color:var(--tabmuted)}
+.tabbar button[aria-current="page"]{color:var(--hdr-ink)}
+.tabbar button[aria-current="page"] svg{color:var(--tabon)}
+.wrap{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
+/* seçili çipler */
+.chip[aria-pressed="true"],.builder .chip[aria-pressed="true"]{background:var(--steel);color:var(--panel);border-color:var(--steel)}
+/* giriş ekranı */
+.gin h1{color:var(--ink)}
+/* takvimde devamsızlık günü: koyu modda da okunur */
+.day.abs{color:var(--accent-ink)}
+.day.abs.exam::before{background:var(--accent-ink)}
+/* uzaktan simgesi satır içinde kalsın (bazı listelerde span'lar blok yapılıyordu) */
+span.ico{display:inline-flex!important}
 </style>
 </head>
 <body>
@@ -466,7 +544,7 @@ body.gated .tabbar{display:none}
 
 <div class="gate" id="gate" role="dialog" aria-modal="true" aria-labelledby="gateTitle" hidden>
   <div class="gin">
-    <svg class="glogo" viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="11" fill="#18212E"/><g transform="translate(7 17)"><rect x="0" y="0" width="5" height="13" rx="1.2" fill="#AAB6C6"/><rect x="7" y="0" width="5" height="13" rx="1.2" fill="#AAB6C6"/><rect x="15.5" y="0" width="5" height="13" rx="1.2" fill="#E9AE2E"/><rect x="23.5" y="0.8" width="3.6" height="11.4" rx="1" fill="none" stroke="#E9AE2E" stroke-width="1.6"/><rect x="30" y="0.8" width="3.6" height="11.4" rx="1" fill="none" stroke="#F0645A" stroke-width="1.6"/></g></svg>
+    <svg class="glogo" viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="12" fill="#26311C"/><g transform="translate(7 17)"><rect x="0" y="0" width="5" height="13" rx="2.5" fill="#B9C79A"/><rect x="7" y="0" width="5" height="13" rx="2.5" fill="#B9C79A"/><rect x="15.5" y="0" width="5" height="13" rx="2.5" fill="#E0B04A"/><rect x="23.5" y="0.8" width="3.6" height="11.4" rx="1.8" fill="none" stroke="#E0B04A" stroke-width="1.6"/><rect x="30" y="0.8" width="3.6" height="11.4" rx="1.8" fill="none" stroke="#F07A55" stroke-width="1.6"/></g></svg>
     <h1 id="gateTitle">Devamsızlık</h1>
     <p id="gateText"></p>
     <p class="carry" id="gateCarry" hidden>Bu telefonda daha önce girdiğin kayıtlar hesabına aktarılır.</p>
@@ -1420,7 +1498,7 @@ function renderAdd(){
 }
 
 /* ---------- Program sekmesi ---------- */
-var PALETTE = ["#2F6FDE","#0F9D8A","#7B5CD6","#E07B24","#D6457A","#3E9B3E","#C99A12","#5A7AA0"];
+var PALETTE = ["#5E7A36","#2F7A6B","#8A5A9E","#C07A2C","#B5485D","#3C6E9E","#A08A2A","#6B7A8C"];
 function courseColor(c){
   var i = state.courses.indexOf(c);
   return PALETTE[(i < 0 ? 0 : i) % PALETTE.length];
