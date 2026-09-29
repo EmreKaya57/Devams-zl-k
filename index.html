@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>try{var __t=localStorage.getItem("devamsizlik-theme");if(__t==="dark"||__t==="light")document.documentElement.setAttribute("data-theme",__t);}catch(e){}</script>
 <title>Devamsızlık</title>
 <meta name="theme-color" content="#26311C" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1F2818" media="(prefers-color-scheme: dark)">
@@ -457,6 +458,10 @@ h2{font-size:19px}
 .wrap{padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))}
 /* seçili çipler */
 .chip[aria-pressed="true"],.builder .chip[aria-pressed="true"]{background:var(--steel);color:var(--panel);border-color:var(--steel)}
+/* tarih/saat seçicileri temaya uysun */
+:root{color-scheme:light dark}
+:root[data-theme="dark"]{color-scheme:dark}
+:root[data-theme="light"]{color-scheme:light}
 /* giriş ekranı */
 .gin h1{color:var(--ink)}
 /* takvimde devamsızlık günü: koyu modda da okunur */
@@ -1587,10 +1592,31 @@ function shareSummary(){
 }
 
 /* ---------- ayarlar ---------- */
+/* ---------- görünüm (uygulamaya özel) ---------- */
+var THEME_KEY = "devamsizlik-theme";
+function getTheme(){ try{ var t = localStorage.getItem(THEME_KEY); return t === "dark" || t === "light" ? t : "auto"; }catch(e){ return "auto"; } }
+function applyTheme(t){
+  var r = document.documentElement;
+  if(t === "auto") r.removeAttribute("data-theme"); else r.setAttribute("data-theme", t);
+  try{ if(t === "auto") localStorage.removeItem(THEME_KEY); else localStorage.setItem(THEME_KEY, t); }catch(e){}
+  document.querySelectorAll('meta[name="theme-color"]').forEach(function(m){
+    if(!m.getAttribute("data-orig")) m.setAttribute("data-orig", m.getAttribute("content"));
+    m.setAttribute("content", t === "auto" ? m.getAttribute("data-orig") : (t === "dark" ? "#1F2818" : "#26311C"));
+  });
+}
+applyTheme(getTheme());
+
 function renderSettings(){
   var body = document.getElementById("setBody");
   body.textContent = "";
   var st = state.settings;
+  var cur = getTheme();
+  var themeRow = el("div",{class:"daychips",role:"group","aria-label":"Görünüm"});
+  [["auto","Otomatik"],["light","Açık"],["dark","Koyu"]].forEach(function(o){
+    themeRow.appendChild(el("button",{class:"chip",type:"button","aria-pressed":String(cur === o[0]),text:o[1],onclick:function(){ applyTheme(o[0]); renderSettings(); }}));
+  });
+  body.appendChild(el("div",{class:"field",style:"margin-top:12px"},[ el("span",{class:"flabel",text:"Görünüm"}), themeRow ]));
+  body.appendChild(el("p",{class:"hint",text: cur === "auto" ? "Otomatik: telefonun açık/koyu ayarını izler." : "Bu seçim sadece bu telefonda geçerli."}));
   var startIn = el("input",{type:"date",id:"stStart"}); startIn.value = st.start;
   startIn.addEventListener("change", function(){ st.start = startIn.value || ""; st.su = Date.now(); save(); render(); });
   body.appendChild(el("div",{class:"field",style:"margin-top:12px"},[ el("label",{for:"stStart",text:"Dönem başlangıcı (ilk ders günü)"}), startIn ]));
