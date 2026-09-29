@@ -338,6 +338,32 @@ body.gated .tabbar{display:none}
 .lg-off{background:repeating-linear-gradient(135deg,var(--bg) 0 3px,var(--steel) 3px 5px)}
 .xline{margin:6px 0 0;font-size:15px;color:var(--ink);border-left:3px solid var(--amber);padding-left:10px}
 .offchips .chip{font-size:13px;padding:7px 11px}
+
+.sess li{align-items:flex-start;padding:8px 0}
+.sline{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;flex:1;min-width:0}
+.sline .sl{flex:0 1 auto}
+.mini-chip{padding:4px 10px!important;font-size:13px!important}
+.sline .roomin{height:32px!important;flex:1 1 130px;font-size:14px}
+.acts{align-self:center}
+
+/* hafif animasyonlar */
+.primary,.ghost,.chip,.gbtn,.srow,.nrow,.xrow,.pblk,.chead,.day,.calnav,.tabbar button{transition:transform .08s ease-out}
+.primary:active,.ghost:active,.chip:active,.gbtn:active,.calnav:active,.day:active{transform:scale(.97)}
+.srow:active,.nrow:active,.xrow:active,.pblk:active{transform:scale(.99)}
+.tick{transition:background .15s ease-out,border-color .15s ease-out}
+@media (prefers-reduced-motion: no-preference){
+  .tick.pop{animation:tickpop .32s cubic-bezier(.3,1.7,.5,1)}
+  @keyframes tickpop{0%{transform:scale(.6)}100%{transform:scale(1)}}
+  .cell.fillin{animation:cellin .42s cubic-bezier(.2,.9,.3,1.2) both;transform-origin:bottom}
+  @keyframes cellin{from{transform:scaleY(.15);opacity:.2}to{transform:none;opacity:1}}
+  .detail.reveal{animation:reveal .22s ease-out}
+  @keyframes reveal{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+  .tabbar button[aria-current="page"] svg{animation:tabpop .28s cubic-bezier(.3,1.6,.5,1)}
+  @keyframes tabpop{0%{transform:scale(.8) translateY(2px)}100%{transform:none}}
+  .gate .gin{animation:gatein .35s ease-out}
+  @keyframes gatein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+}
+@media (prefers-reduced-motion: reduce){ .primary:active,.ghost:active,.chip:active,.gbtn:active{transform:none} }
 </style>
 </head>
 <body>
@@ -425,6 +451,7 @@ body.gated .tabbar{display:none}
 </div>
 
 <datalist id="roomList"></datalist>
+<datalist id="platformList"></datalist>
 <nav class="tabbar" aria-label="Sayfalar"><div class="in">
   <button type="button" data-tab="today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M8 12.5l3 3 5-6"/></svg>Bugün</button>
   <button type="button" data-tab="prog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>Program</button>
@@ -494,6 +521,7 @@ var drafts = {};      /* telafi formu */
 var builders = {};    /* oturum ekleme formları */
 var newCourse = {name:"", code:"", sessions:[]};
 var showAll = {};
+var roomEditing = null;
 var openDetails = {};
 function keepOpen(det, key, def){
   if(openDetails[key] === undefined ? def : openDetails[key]) det.setAttribute("open","");
@@ -522,7 +550,7 @@ function W(){ return state.settings.weeks; }
 function title(c){ if(typeof c.cd === "string") return c.cd; return c.code && c.code.charAt(0) !== "_" ? c.code : ""; }
 function label(c){ var t = title(c); return t ? t + " " + c.name : c.name; }
 function weekly(c){ return c.sessions.reduce(function(a,s){ return a + (+s.h||0); },0); }
-function used(c){ return state.entries.filter(function(e){ return e.code===c.code; }).reduce(function(a,e){ return a + (+e.hours||0); },0); }
+function used(c){ return state.entries.filter(function(e){ return e.code===c.code && !(e.sid && offOn(e.date, e.sid)); }).reduce(function(a,e){ return a + (+e.hours||0); },0); }
 function course(code){ for(var i=0;i<state.courses.length;i++) if(state.courses[i].code===code) return state.courses[i]; return null; }
 function zone(u,w){ var k = W(); if(!w) return 0; if(u > w*k) return 3; if(u > w*(k-1)) return 2; if(k > 2 && u > w*(k-2)) return 1; return 0; }
 function sortedSessions(c){
@@ -710,18 +738,27 @@ function pendingImport(){ try{ return localStorage.getItem(PENDING_KEY) || ""; }
 function clearImport(){ try{ localStorage.removeItem(PENDING_KEY); }catch(e){} }
 
 /* ---------- işlemler ---------- */
+/* kısa, tek seferlik animasyon işaretleri: sadece kullanıcının yaptığı değişiklik oynar */
+var fx = {}, fxPrev = {};
+function mark(key){ fx[key] = Date.now(); }
+function hot(key){ return !!fx[key] && Date.now() - fx[key] < 900; }
+function tkey(code, date, sidv){ return "t:" + code + "|" + date + "|" + (sidv || ""); }
+function noteBar(code){ var c = course(code); fxPrev[code] = c ? used(c) : 0; mark("bar:" + code); }
 function addEntry(code, date, hours, sidv, note){
   var now = Date.now();
+  noteBar(code); mark(tkey(code, date, sidv));
   state.entries.push({id:sid(), code:code, date:date, hours:hours, sid:sidv||null, note:note||"", u:now, c:now});
   state.entries.sort(function(a,b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
   save(); render();
 }
 function removeEntry(id){
+  var gone = state.entries.filter(function(e){ return e.id === id; })[0];
+  if(gone) noteBar(gone.code);
   state.entries = state.entries.filter(function(e){ return e.id !== id; });
   state.delE[id] = Date.now();
   save(); render();
 }
-function setHours(e, h){ e.hours = h; e.u = Date.now(); save(); render(); }
+function setHours(e, h){ noteBar(e.code); e.hours = h; e.u = Date.now(); save(); render(); }
 function findEntry(code, date, sidv){
   for(var i=0;i<state.entries.length;i++){
     var e = state.entries[i];
@@ -745,7 +782,7 @@ var el = function(tag, attrs, kids){
   return n;
 };
 var CHECK = '<svg viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg>';
-function tickBox(){ var t = el("span",{class:"tick"}); t.innerHTML = CHECK; return t; }
+function tickBox(pop){ var t = el("span",{class:"tick" + (pop ? " pop" : "")}); t.innerHTML = CHECK; return t; }
 function mini(value, min, max, onChange, unit){
   var out = el("output",{text: value + (unit||"")});
   return el("div",{class:"mini"},[
@@ -808,13 +845,12 @@ function sessionBuilder(key, existing, onDone, addText){
   /* derslik: ayrı kutu yok, "Ders şekli" satırında küçük bir çip */
   var roomChip;
   if(b.roomEdit){
-    roomChip = el("input",{type:"text",class:"roomin",id:"br-"+key,autocomplete:"off",list:"roomList",enterkeyhint:"done",
+    roomChip = el("input",{type:"text",class:"roomin",id:"br-"+key,autocomplete:"off",list: b.online ? "platformList" : "roomList",enterkeyhint:"done",
       "aria-label": b.online ? "Platform" : "Derslik", placeholder: b.online ? "ör. Teams" : "ör. Derslik 101"});
     roomChip.value = b.room;
-    var closeRoom = function(){ if(!b.roomEdit) return; b.room = roomChip.value.trim(); b.roomEdit = false; redraw(); };
-    roomChip.addEventListener("keydown", function(ev){ if(ev.key === "Enter"){ ev.preventDefault(); closeRoom(); } });
-    roomChip.addEventListener("change", closeRoom);
-    roomChip.addEventListener("blur", closeRoom);
+    roomChip.addEventListener("input", function(){ b.room = roomChip.value; });
+    roomChip.addEventListener("keydown", function(ev){ if(ev.key === "Enter"){ ev.preventDefault(); b.room = roomChip.value.trim(); b.roomEdit = false; redraw(); } });
+    roomChip.addEventListener("blur", function(){ b.room = roomChip.value.trim(); b.roomEdit = false; });
     setTimeout(function(){ try{ roomChip.focus(); }catch(e){} }, 0);
   } else {
     roomChip = el("button",{class:"chip roomchip" + (b.room ? " has" : ""),type:"button",onclick:function(){ b.roomEdit = true; redraw(); }},
@@ -854,6 +890,7 @@ function sessionBuilder(key, existing, onDone, addText){
     onDone(r.sess, wasEdit);
   }}));
   if(b.editId) row.appendChild(el("button",{class:"ghost",type:"button",style:"margin-top:0",text:"Vazgeç",onclick:function(){ builders[key] = blankBuilder(); redraw(); }}));
+  else if(b.d !== null || b.s || b.e || (b.room || "").trim()) row.appendChild(el("button",{class:"ghost",type:"button",style:"margin-top:0;flex:0 0 auto;padding:0 16px",text:"Temizle",onclick:function(){ builders[key] = blankBuilder(); redraw(); }}));
   box.appendChild(row);
   if(b.msg) box.appendChild(el("p",{class:"hint err",text:b.msg}));
   return box;
@@ -863,7 +900,7 @@ function commitBuilder(key, existing, onDone){
   var b = builders[key]; if(!b) return {ok:true};
   var r = checkBuilder(b, existing);
   if(r.status === "empty") return {ok:true};
-  if(r.status !== "ok") return {ok:false, msg:"Gün/saat formu eksik: " + r.msg};
+  if(r.status !== "ok") return {ok:false, msg:"Gün formu: " + r.msg + " Formu kullanmayacaksan Temizle'ye bas."};
   var wasEdit = !!b.editId;
   builders[key] = blankBuilder();
   onDone(r.sess, wasEdit);
@@ -981,7 +1018,7 @@ function renderToday(){
     });
     var code = title(r.c);
     box.appendChild(el("label",{class:"trow"},[
-      input, tickBox(),
+      input, tickBox(!!ex && hot(tkey(r.c.code, t, r.s.id))),
       el("div",{class:"tinfo"},[ el("b",{text:r.c.name}), sessLine(r.s, code) ]),
       el("div",{class:"thours",text:(ex ? ex.hours : r.s.h)+" saat"})
     ]));
@@ -989,12 +1026,18 @@ function renderToday(){
 }
 
 /* ---------- ders kartı ---------- */
-function renderBar(u, w){
+function renderBar(u, w, code){
   var k = W(), bar = el("div",{class:"bar","aria-hidden":"true"});
+  var anim = code && hot("bar:" + code), prev = anim ? (fxPrev[code] || 0) : u;
   for(var g=0; g<k; g++){
     var z = g===k-1 ? " z2" : (g===k-2 && k>2) ? " z1" : "";
     var wk = el("div",{class:"wk" + z});
-    for(var i=0;i<w;i++) wk.appendChild(el("span",{class:"cell" + (g*w + i < u ? " on" : "")}));
+    for(var i=0;i<w;i++){
+      var idx = g*w + i, on = idx < u, fresh = anim && on && idx >= prev;
+      var cell = el("span",{class:"cell" + (on ? " on" : "") + (fresh ? " fillin" : "")});
+      if(fresh) cell.style.animationDelay = ((idx - prev) * 60) + "ms";
+      wk.appendChild(cell);
+    }
     bar.appendChild(wk);
   }
   if(u > w*k) bar.appendChild(el("span",{class:"overflow",text:"+"+(u-w*k)}));
@@ -1012,10 +1055,10 @@ function renderCourse(c){
   var nb = nameBlock(c);
   if(allOnline) nb.firstChild.appendChild(onlineIcon());
   var head = el("button",{class:"chead",type:"button","aria-expanded":String(isOpen),onclick:function(){
-    openCode = isOpen ? null : c.code; armed = null; render();
+    openCode = isOpen ? null : c.code; armed = null; if(!isOpen) mark("open:" + c.code); render();
   }},[ el("div",{class:"ctop"},[ nb, leftBox ]) ]);
   if(w){
-    head.appendChild(renderBar(u,w));
+    head.appendChild(renderBar(u,w,c.code));
     var maxS = Math.max.apply(null, c.sessions.map(function(s){ return +s.h||0; }));
     var info;
     if(z===3) info = el("span",{class:"warn",text:"Limit "+(u-lim)+" saat aşıldı"});
@@ -1026,7 +1069,7 @@ function renderCourse(c){
     head.appendChild(el("div",{class:"noprog",text:"Gün ve saatini ekle, limit hesaplansın"}));
   }
   wrap.appendChild(head);
-  var d = el("div",{class:"detail"});
+  var d = el("div",{class:"detail" + (hot("open:" + c.code) ? " reveal" : "")});
   if(isOpen) fillDetail(d, c, w);
   wrap.appendChild(d);
   return wrap;
@@ -1056,7 +1099,7 @@ function fillDetail(d, c, w){
       });
       var wn = weekNo(o.date);
       var li = el("li",null,[
-        el("label",null,[ input, tickBox(),
+        el("label",null,[ input, tickBox(!!ex && hot(tkey(c.code, o.date, o.s.id))),
           el("div",{class:"oi"},[ el("b",{text:fmt(o.date)}), sessLine(o.s, (wn ? wn + ". hafta" : "") + (o.date===todayIso() ? (wn ? ", " : "") + "bugün" : "")) ]) ])
       ]);
       if(ex && +o.s.h > 1) li.appendChild(mini(+ex.hours, 1, +o.s.h, function(v){ setHours(ex, v); }, " s"));
@@ -1107,7 +1150,8 @@ function fillDetail(d, c, w){
   var extras = state.entries.filter(function(e){
     if(e.code !== c.code) return false;
     if(!e.sid) return true;
-    return !c.sessions.some(function(x){ return x.id === e.sid; });
+    var sx = c.sessions.filter(function(x){ return x.id === e.sid; })[0];
+    return !sx || +sx.d !== parseIso(e.date).getDay();
   });
   if(extras.length){
     var ul2 = el("ul",{class:"entries"});
@@ -1167,7 +1211,10 @@ function fillDetail(d, c, w){
   /* 4) dersi düzenle: ad, kod, oturumlar, tek kaydet butonu */
   var key = "c:" + c.code;
   var det = keepOpen(el("details",null,[ el("summary",{text: c.sessions.length ? "Dersi düzenle" : "Gün ve saat ekle"}) ]), "edit:"+c.code, !c.sessions.length);
-  var ed = drafts["ed:"+c.code] || (drafts["ed:"+c.code] = {name:c.name, code:title(c), msg:"", ok:false});
+  var ed = drafts["ed:"+c.code];
+  if(!ed || (ed.name === ed.baseName && ed.code === ed.baseCode && (ed.baseName !== c.name || ed.baseCode !== title(c)))){
+    ed = drafts["ed:"+c.code] = {name:c.name, code:title(c), baseName:c.name, baseCode:title(c), msg: ed ? ed.msg : "", ok: ed ? ed.ok : false};
+  }
   var nameIn = el("input",{type:"text",autocomplete:"off",id:"nm-"+c.code}); nameIn.value = ed.name;
   var codeIn = el("input",{type:"text",autocomplete:"off",id:"cd-"+c.code,placeholder:"ör. MAK201"}); codeIn.value = ed.code;
   nameIn.addEventListener("input", function(){ ed.name = nameIn.value; ed.msg = ""; });
@@ -1182,8 +1229,36 @@ function fillDetail(d, c, w){
   sortedSessions(c).forEach(function(s){
     var hasRec = state.entries.some(function(e){ return e.sid === s.id; });
     var isArmed = armed === "s:"+s.id;
+    var rchip;
+    if(roomEditing === s.id){
+      rchip = el("input",{type:"text",class:"roomin",autocomplete:"off",list: s.online ? "platformList" : "roomList",enterkeyhint:"done",
+        "aria-label": s.online ? "Platform" : "Derslik", placeholder: s.online ? "ör. Teams" : "ör. Derslik 101"});
+      rchip.value = s.room || "";
+      var done = false;
+      var commitRoom = function(){
+        if(done) return; done = true;
+        var v = rchip.value.trim();
+        roomEditing = null;
+        var cc = course(c.code);
+        if(cc && v !== (s.room || "")){
+          cc.sessions = cc.sessions.map(function(x){ if(x.id !== s.id) return x; var y = JSON.parse(JSON.stringify(x)); if(v) y.room = v; else delete y.room; return y; });
+          touchCourse(cc); save();
+          var e2 = drafts["ed:"+c.code]; if(e2){ e2.msg = "Derslik kaydedildi."; e2.ok = true; }
+        }
+        render();
+      };
+      rchip.addEventListener("keydown", function(ev){ if(ev.key === "Enter"){ ev.preventDefault(); commitRoom(); } });
+      rchip.addEventListener("blur", function(){ setTimeout(commitRoom, 0); });
+      setTimeout(function(){ try{ rchip.focus(); }catch(e){} }, 0);
+    } else {
+      rchip = el("button",{class:"chip roomchip mini-chip" + (s.room ? " has" : ""),type:"button",onclick:function(){ roomEditing = s.id; render(); }},
+        [ s.room ? s.room : (s.online ? "+ Platform" : "+ Derslik") ]);
+    }
     sul.appendChild(el("li",{class: editing === s.id ? "editing" : null},[
-      el("span",{class:"sl"},[ s.online ? onlineIcon() : null, DAYS_LONG[s.d]+" "+s.t+", "+s.h+" saat" + (s.room ? ", " + s.room : "") ]),
+      el("div",{class:"sline"},[
+        el("span",{class:"sl"},[ s.online ? onlineIcon() : null, DAYS_LONG[s.d]+" "+s.t+", "+s.h+" saat" ]),
+        rchip
+      ]),
       el("span",{class:"acts"},[
         el("button",{class:"del",type:"button","aria-label":"Düzenle",text:"Düzenle",onclick:function(){
           builders[key] = {d:+s.d, s:s.s, e:s.e, h:+s.h, hTouched:true, online:!!s.online, room:s.room||"", roomEdit:false, editId:s.id, msg:""};
@@ -1213,14 +1288,30 @@ function fillDetail(d, c, w){
   det.appendChild(el("button",{class:"primary",type:"button",text:"Değişiklikleri kaydet",onclick:function(){
     var name = ed.name.trim();
     if(!name){ ed.msg = "Ders adı boş olamaz."; ed.ok = false; render(); return; }
+    var bb = builders[key], roomOnly = "";
+    if(bb && !bb.editId && bb.d === null && !bb.s && !bb.e && (bb.room || "").trim()){
+      /* sadece derslik yazılmış, gün seçilmemiş: dersliği bu dersin günlerine uygula */
+      roomOnly = bb.room.trim();
+      builders[key] = blankBuilder();
+    }
     var r = commitBuilder(key, c.sessions, applySession);
     if(!r.ok){ ed.msg = r.msg; ed.ok = false; render(); return; }
+    var roomNote = "";
+    if(roomOnly){
+      if(!c.sessions.length){ ed.msg = "Derslik bir güne bağlı. Önce gün ve saat ekle."; ed.ok = false; render(); return; }
+      var targets = c.sessions.length === 1 ? c.sessions : c.sessions.filter(function(x){ return !x.room; });
+      if(!targets.length){ ed.msg = "Bu dersin bütün günlerinde derslik zaten var. Değiştirmek için ilgili günün yanındaki derslik çipine dokun."; ed.ok = false; render(); return; }
+      var ids = targets.map(function(x){ return x.id; });
+      c.sessions = c.sessions.map(function(x){ if(ids.indexOf(x.id) < 0) return x; var y = JSON.parse(JSON.stringify(x)); y.room = roomOnly; return y; });
+      roomNote = targets.length === c.sessions.length ? " Derslik bütün günlere eklendi." : " Derslik, dersliği boş olan günlere eklendi.";
+    }
     var code = ed.code.trim().toUpperCase().replace(/\s+/g,"");
-    var changed = r.added || name !== c.name || code !== title(c);
-    if(name !== c.name) c.name = name;
-    if(code !== title(c)) c.cd = code;
+    var nameChanged = name !== ed.baseName, codeChanged = code !== (ed.baseCode || "");
+    var changed = r.added || !!roomOnly || (nameChanged && name !== c.name) || (codeChanged && code !== title(c));
+    if(nameChanged) c.name = name;
+    if(codeChanged) c.cd = code;
     if(changed){ touchCourse(c); save(); }
-    drafts["ed:"+c.code] = {name:c.name, code:title(c), msg: changed ? "Kaydedildi." : "Değişiklik yok.", ok:true};
+    drafts["ed:"+c.code] = {name:c.name, code:title(c), baseName:c.name, baseCode:title(c), msg: changed ? "Kaydedildi." + roomNote : "Değişiklik yok.", ok:true};
     render();
   }}));
   det.appendChild(emsg);
@@ -1240,11 +1331,14 @@ function fillDetail(d, c, w){
 
 /* ---------- ders ekleme ---------- */
 function renderRoomList(){
-  var dl = document.getElementById("roomList"); if(!dl) return;
-  var seen = {}, rooms = [];
-  allSessions().forEach(function(x){ var r = x.s.room; if(r && !seen[r]){ seen[r] = 1; rooms.push(r); } });
-  dl.textContent = "";
-  rooms.sort().forEach(function(r){ dl.appendChild(el("option",{value:r})); });
+  var fill = function(id, online){
+    var dl = document.getElementById(id); if(!dl) return;
+    var seen = {}, list = [];
+    allSessions().forEach(function(x){ var r = x.s.room; if(r && !!x.s.online === online && !seen[r]){ seen[r] = 1; list.push(r); } });
+    dl.textContent = "";
+    list.sort().forEach(function(r){ dl.appendChild(el("option",{value:r})); });
+  };
+  fill("roomList", false); fill("platformList", true);
 }
 function renderAdd(){
   var box = document.getElementById("addPanel");
@@ -1431,7 +1525,7 @@ function renderStatus(){
       var n = document.getElementById("course-" + c.code); if(n) n.scrollIntoView({block:"start"}); }, 30); }},[
       el("div",{class:"top"},[ nameBlock(c), el("span",{class:"r" + (z===3?" over":z===2?" z2":z===1?" z1":""),text:r}) ])
     ]);
-    if(w) btn.appendChild(renderBar(u,w));
+    if(w) btn.appendChild(renderBar(u,w,c.code));
     box.appendChild(btn);
   });
 }
@@ -1541,7 +1635,7 @@ function renderDay(map){
         if(input.checked) addEntry(r.c.code, di, +r.s.h, r.s.id, "");
         else if(ex) removeEntry(ex.id);
       });
-      var li = el("li",null,[ el("label",null,[ input, tickBox(),
+      var li = el("li",null,[ el("label",null,[ input, tickBox(!!ex && hot(tkey(r.c.code, di, r.s.id))),
         el("div",{class:"oi"},[ el("b",{text:r.c.name}), sessLine(r.s, title(r.c)), ex ? el("span",{class:"stamp",text:stampText(ex)}) : null ]) ]) ]);
       if(ex && +r.s.h > 1) li.appendChild(mini(+ex.hours, 1, +r.s.h, function(v){ setHours(ex, v); }, " s"));
       else li.appendChild(el("span",{class:"ohrs",text:r.s.h+" saat"}));
