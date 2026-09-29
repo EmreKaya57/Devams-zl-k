@@ -193,66 +193,134 @@ footer p{margin:4px 0}
 .emptybox p{margin:6px 0 0;color:var(--muted)}
 .row2{display:flex;gap:10px;margin-top:10px}
 .row2 > *{flex:1}
+
+/* sekmeler */
+.wrap{padding-bottom:96px}
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;justify-content:center;
+  background:var(--panel);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px))}
+.tabbar .in{display:flex;width:100%;max-width:620px}
+.tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;border:0;background:none;
+  padding:6px 0 4px;color:var(--muted);font-size:12px;font-weight:500;cursor:pointer;border-radius:10px}
+.tabbar button svg{width:24px;height:24px}
+.tabbar button[aria-current="page"]{color:var(--ink)}
+.tabbar button[aria-current="page"] svg{color:var(--accent)}
+.tab{animation:none}
+.tab.in-l{animation:inl .18s ease-out}
+.tab.in-r{animation:inr .18s ease-out}
+@keyframes inl{from{opacity:.4;transform:translateX(-18px)}to{opacity:1;transform:none}}
+@keyframes inr{from{opacity:.4;transform:translateX(18px)}to{opacity:1;transform:none}}
+/* durum listesi */
+.srow{display:block;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);padding:11px 2px;cursor:pointer}
+.srow:first-child{border-top:0}
+.srow .top{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+.srow b{font-family:var(--cond);font-weight:600;font-size:16px}
+.srow .r{font-family:var(--cond);font-weight:700;font-size:16px;white-space:nowrap}
+.srow .r.z1{color:var(--amber)} .srow .r.z2,.srow .r.over{color:var(--red)}
+.srow .bar{margin-top:6px}
+.srow .cell{height:8px}
+/* takvim */
+.calhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.calhead h2{margin:0}
+.calnav{width:40px;height:40px;border:1px solid var(--line);border-radius:8px;background:none;font-size:20px;cursor:pointer}
+.grid7{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.dow{font-size:12px;color:var(--muted);text-align:center;padding-bottom:2px}
+.day{position:relative;aspect-ratio:1/1;width:100%;min-width:0;border:1px solid transparent;border-radius:8px;background:var(--bg);
+  font-family:var(--cond);font-weight:600;font-size:16px;color:var(--ink);cursor:pointer;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+.day.blank{background:none;cursor:default}
+.day.future{color:var(--muted);opacity:.55}
+.day.cls::after{content:"";position:absolute;bottom:5px;width:4px;height:4px;border-radius:50%;background:var(--steel);opacity:.5}
+.day.abs{background:var(--red);color:#fff}
+.day.abs::after{display:none}
+.day .hh{font-size:10px;font-weight:600;line-height:1}
+.day.today{border-color:var(--accent)}
+.day.sel{outline:2px solid var(--ink);outline-offset:1px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:13px;color:var(--muted);margin-top:10px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.mrow{display:flex;justify-content:space-between;gap:10px;padding:9px 2px;border-top:1px solid var(--line);width:100%;background:none;border-left:0;border-right:0;border-bottom:0;text-align:left;cursor:pointer;font-size:15px}
+.mrow span{color:var(--muted);white-space:nowrap}
+.mhead{font-family:var(--cond);font-weight:600;font-size:16px;margin:14px 0 2px;display:flex;justify-content:space-between}
+.mhead span{font-weight:500;color:var(--muted);font-size:14px}
+.stamp{display:block;color:var(--muted);font-size:12px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>Devamsızlık</h1>
+    <h1 id="pageTitle">Devamsızlık</h1>
     <div class="today-date" id="todayDate"></div>
   </header>
 
-  <div class="panel cloud" id="cloudBanner" hidden>
-    <p>Kayıtların sadece bu telefonda. Google ile giriş yap, telefon sıfırlansa da geri gelsin.</p>
-    <button class="gbtn" type="button" id="signInTop">Giriş yap</button>
-  </div>
-
-  <section class="panel today" aria-labelledby="todayTitle">
-    <div class="today-head">
-      <h2 id="todayTitle">Bugün</h2>
-      <p class="sub">Girmediğin dersi işaretle, tarih otomatik yazılır.</p>
+  <section class="tab" id="tab-today">
+    <div class="panel cloud" id="installBanner" hidden>
+      <p id="installText"></p>
+      <button class="gbtn" type="button" id="installBtn" hidden>Yükle</button>
+      <button class="del" type="button" id="installClose" aria-label="Kapat">×</button>
     </div>
-    <div id="todayList"></div>
+    <div class="panel cloud" id="cloudBanner" hidden>
+      <p>Kayıtların sadece bu telefonda. Google ile giriş yap, telefon sıfırlansa da geri gelsin.</p>
+      <button class="gbtn" type="button" id="signInTop">Giriş yap</button>
+    </div>
+    <section class="panel today" aria-labelledby="todayTitle">
+      <div class="today-head">
+        <h2 id="todayTitle">Bugün</h2>
+        <p class="sub">Girmediğin dersi işaretle, tarih otomatik yazılır.</p>
+      </div>
+      <div id="todayList"></div>
+    </section>
+    <div class="list-head">
+      <h2>Durum</h2>
+      <div class="risk" id="risk"></div>
+    </div>
+    <div class="panel" style="padding:4px 14px" id="statusList"></div>
   </section>
 
-  <div class="list-head">
-    <h2>Dersler</h2>
-    <div class="risk" id="risk"></div>
-  </div>
-  <div class="panel courses" id="courses"></div>
+  <section class="tab" id="tab-courses" hidden>
+    <div class="panel courses" id="courses"></div>
+    <div class="panel" id="addPanel" style="margin-top:14px"></div>
+  </section>
 
-  <div class="panel" id="addPanel" style="margin-top:14px"></div>
+  <section class="tab" id="tab-cal" hidden>
+    <div class="panel section" id="calBody"></div>
+    <div class="panel section" id="dayBody" style="margin-top:14px"></div>
+    <div class="panel section" id="allBody" style="margin-top:14px"></div>
+  </section>
 
-  <details class="panel section" id="progPanel" style="margin-top:14px">
-    <summary>Haftalık program</summary>
-    <div id="progBody"></div>
-  </details>
-
-  <details class="panel section" id="setPanel" style="margin-top:14px">
-    <summary>Ayarlar</summary>
-    <div id="setBody"></div>
-  </details>
-
-  <details class="panel section" style="margin-top:14px">
-    <summary>Elle yedek</summary>
-    <p class="sub" style="margin-top:10px">Google ile giriş yaptıysan gerek yok. Yapmadıysan arada yedeği kopyalayıp bir yere yapıştır.</p>
-    <button class="ghost" id="bkCopy" type="button">Yedeği kopyala</button>
-    <div class="field" style="margin-top:10px"><label for="bkText">Yedek metni</label>
-      <textarea id="bkText" rows="3" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font:inherit;font-size:13px;color:inherit"></textarea></div>
-    <button class="ghost" id="bkLoad" type="button">Yedeği geri yükle</button>
-    <p class="msg" id="bkMsg" style="color:var(--muted)"></p>
-  </details>
-
-  <div class="panel acct" id="acct">
-    <h2>Bulut yedeği</h2>
-    <div id="acctBody"><p class="st">Yükleniyor…</p></div>
-  </div>
-
-  <footer>
-    <p id="ruleLine"></p>
-    <p id="syncState"></p>
-  </footer>
+  <section class="tab" id="tab-more" hidden>
+    <details class="panel section" id="progPanel" open>
+      <summary>Haftalık program</summary>
+      <div id="progBody"></div>
+    </details>
+    <details class="panel section" id="setPanel" style="margin-top:14px">
+      <summary>Ayarlar</summary>
+      <div id="setBody"></div>
+    </details>
+    <div class="panel acct" id="acct">
+      <h2>Bulut yedeği</h2>
+      <div id="acctBody"><p class="st">Yükleniyor…</p></div>
+    </div>
+    <details class="panel section" style="margin-top:14px">
+      <summary>Elle yedek</summary>
+      <p class="sub" style="margin-top:10px">Google ile giriş yaptıysan gerek yok. Yapmadıysan arada yedeği kopyalayıp bir yere yapıştır.</p>
+      <button class="ghost" id="bkCopy" type="button">Yedeği kopyala</button>
+      <div class="field" style="margin-top:10px"><label for="bkText">Yedek metni</label>
+        <textarea id="bkText" rows="3" style="width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);font:inherit;font-size:13px;color:inherit"></textarea></div>
+      <button class="ghost" id="bkLoad" type="button">Yedeği geri yükle</button>
+      <p class="msg" id="bkMsg" style="color:var(--muted)"></p>
+    </details>
+    <footer>
+      <p id="ruleLine"></p>
+      <p id="syncState"></p>
+    </footer>
+  </section>
 </div>
+
+<nav class="tabbar" aria-label="Sayfalar"><div class="in">
+  <button type="button" data-tab="today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M8 12.5l3 3 5-6"/></svg>Bugün</button>
+  <button type="button" data-tab="courses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H19v14H5.5A1.5 1.5 0 0 0 4 19.5z"/><path d="M4 19.5A1.5 1.5 0 0 0 5.5 21H19v-3"/><path d="M8.5 8h6M8.5 11.5h6"/></svg>Dersler</button>
+  <button type="button" data-tab="cal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/><circle cx="12" cy="15" r="1.4" fill="currentColor" stroke="none"/></svg>Takvim</button>
+  <button type="button" data-tab="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>Diğer</button>
+</div></nav>
+
 <script>
 (function(){
 "use strict";
@@ -411,7 +479,8 @@ function canon(s){ return stable({c:s.courses, e:s.entries, de:s.delE, dc:s.delC
 
 /* ---------- işlemler ---------- */
 function addEntry(code, date, hours, sidv, note){
-  state.entries.push({id:sid(), code:code, date:date, hours:hours, sid:sidv||null, note:note||"", u:Date.now()});
+  var now = Date.now();
+  state.entries.push({id:sid(), code:code, date:date, hours:hours, sid:sidv||null, note:note||"", u:now, c:now});
   state.entries.sort(function(a,b){ return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; });
   save(); render();
 }
@@ -511,7 +580,7 @@ function renderToday(){
   var box = document.getElementById("todayList");
   box.textContent = "";
   var t = todayIso(), dow = new Date().getDay();
-  document.getElementById("todayDate").textContent = fmt(t);
+  document.getElementById("todayDate").textContent = tab === "today" ? fmt(t) : "";
   if(!state.courses.length){ box.appendChild(el("p",{class:"empty",text:"Önce aşağıdan derslerini ekle."})); return; }
   var rows = [];
   state.courses.forEach(function(c){
@@ -822,18 +891,216 @@ function renderRisk(){
     : "";
 }
 
+/* ---------- Durum (ana sayfa özeti) ---------- */
+function renderStatus(){
+  var box = document.getElementById("statusList");
+  box.textContent = "";
+  if(!state.courses.length){ box.appendChild(el("p",{class:"empty",text:"Ders eklemek için alttan Dersler sekmesine geç."})); return; }
+  state.courses.forEach(function(c){
+    var w = weekly(c), u = used(c), lim = w*W(), rem = lim - u, z = zone(u,w);
+    var r = w ? (z===3 ? "limit aşıldı" : rem + " saat kaldı") : "program yok";
+    var btn = el("button",{class:"srow",type:"button",onclick:function(){ openCode = c.code; switchTab("courses"); setTimeout(function(){
+      var n = document.querySelector('#courses .course.open'); if(n) n.scrollIntoView({block:"start"}); }, 30); }},[
+      el("div",{class:"top"},[ el("b",{text:title(c) || c.name}), el("span",{class:"r" + (z===3?" over":z===2?" z2":z===1?" z1":""),text:r}) ])
+    ]);
+    if(w) btn.appendChild(renderBar(u,w));
+    box.appendChild(btn);
+  });
+}
+
+/* ---------- Takvim ---------- */
+var calMonth = null, calSel = null;
+var MONTHS = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
+function byDate(){
+  var m = {};
+  state.entries.forEach(function(e){ (m[e.date] = m[e.date] || []).push(e); });
+  return m;
+}
+function classDay(date){
+  var dow = parseIso(date).getDay();
+  if(state.settings.start && date < state.settings.start) return false;
+  return state.courses.some(function(c){ return c.sessions.some(function(s){ return +s.d === dow; }); });
+}
+function stampText(e){
+  var t = e.c || e.u; if(!t) return "";
+  var d = new Date(t);
+  return "İşaretlendi: " + d.getDate() + " " + MONTHS[d.getMonth()] + " " + hhmm(d);
+}
+function renderCalendar(){
+  var today = todayIso();
+  if(!calSel) calSel = today;
+  if(!calMonth){ var t = parseIso(calSel); calMonth = new Date(t.getFullYear(), t.getMonth(), 1); }
+  var y = calMonth.getFullYear(), m = calMonth.getMonth();
+  var map = byDate();
+  var body = document.getElementById("calBody");
+  body.textContent = "";
+  var monthHours = 0, monthDays = 0;
+  body.appendChild(el("div",{class:"calhead"},[
+    el("button",{class:"calnav",type:"button","aria-label":"Önceki ay",text:"‹",onclick:function(){ calMonth = new Date(y, m-1, 1); renderCalendar(); }}),
+    el("h2",{text:MONTHS[m] + " " + y}),
+    el("button",{class:"calnav",type:"button","aria-label":"Sonraki ay",text:"›",onclick:function(){ calMonth = new Date(y, m+1, 1); renderCalendar(); }})
+  ]));
+  var grid = el("div",{class:"grid7"});
+  ["Pzt","Sal","Çar","Per","Cum","Cmt","Paz"].forEach(function(d){ grid.appendChild(el("div",{class:"dow",text:d})); });
+  var first = new Date(y, m, 1), offset = (first.getDay()+6)%7, days = new Date(y, m+1, 0).getDate();
+  for(var i=0;i<offset;i++) grid.appendChild(el("div",{class:"day blank","aria-hidden":"true"}));
+  for(var d=1; d<=days; d++){
+    var di = y + "-" + pad(m+1) + "-" + pad(d);
+    var list = map[di] || [];
+    var hrs = list.reduce(function(a,e){ return a + (+e.hours||0); },0);
+    if(hrs){ monthHours += hrs; monthDays++; }
+    var cls = "day" + (hrs ? " abs" : "") + (!hrs && classDay(di) && di <= today ? " cls" : "") + (di > today ? " future" : "") + (di === today ? " today" : "") + (di === calSel ? " sel" : "");
+    (function(di){
+      grid.appendChild(el("button",{class:cls,type:"button","aria-label":fmt(di) + (hrs ? ", " + hrs + " saat devamsızlık" : ""),onclick:function(){ calSel = di; renderCalendar(); }},[
+        el("span",{text:String(d)}), hrs ? el("span",{class:"hh",text:hrs+" s"}) : null
+      ]));
+    })(di);
+  }
+  body.appendChild(grid);
+  body.appendChild(el("div",{class:"legend"},[
+    el("span",null,[ el("i",{style:"background:var(--red)"}), "Devamsızlık" ]),
+    el("span",null,[ el("i",{style:"background:var(--steel);opacity:.5;border-radius:50%"}), "Ders günü" ]),
+    el("span",{text: monthHours ? MONTHS[m] + ": " + monthDays + " gün, " + monthHours + " saat" : MONTHS[m] + ": devamsızlık yok"})
+  ]));
+  renderDay(map);
+  renderAll(map);
+}
+function renderDay(map){
+  var body = document.getElementById("dayBody");
+  body.textContent = "";
+  var di = calSel, today = todayIso(), dow = parseIso(di).getDay();
+  body.appendChild(el("h2",{text:fmt(di)}));
+  var rows = [];
+  state.courses.forEach(function(c){ c.sessions.forEach(function(s){ if(+s.d === dow) rows.push({c:c,s:s}); }); });
+  rows.sort(function(a,b){ return toMin(a.s.s) - toMin(b.s.s); });
+  if(di > today){
+    body.appendChild(el("p",{class:"hint",text: rows.length ? "Bu gün henüz gelmedi. O gün " + rows.length + " dersin var." : "Bu gün henüz gelmedi."}));
+  } else if(state.settings.start && di < state.settings.start){
+    body.appendChild(el("p",{class:"hint",text:"Dönem başlangıcından önce."}));
+  } else if(rows.length){
+    body.appendChild(el("p",{class:"hint",text:"Bu günün dersleri. Girmediklerini işaretle."}));
+    var ul = el("ul",{class:"occ"});
+    rows.forEach(function(r){
+      var ex = findEntry(r.c.code, di, r.s.id);
+      var input = el("input",{type:"checkbox","aria-label":label(r.c)+" kaçırıldı"});
+      input.checked = !!ex;
+      input.addEventListener("change", function(){
+        if(input.checked) addEntry(r.c.code, di, +r.s.h, r.s.id, "");
+        else if(ex) removeEntry(ex.id);
+      });
+      var li = el("li",null,[ el("label",null,[ input, tickBox(),
+        el("div",{class:"oi"},[ el("b",{text:label(r.c)}), el("span",{text:r.s.t}), ex ? el("span",{class:"stamp",text:stampText(ex)}) : null ]) ]) ]);
+      if(ex && +r.s.h > 1) li.appendChild(mini(+ex.hours, 1, +r.s.h, function(v){ setHours(ex, v); }, " s"));
+      else li.appendChild(el("span",{class:"ohrs",text:r.s.h+" saat"}));
+      ul.appendChild(li);
+    });
+    body.appendChild(ul);
+  } else {
+    body.appendChild(el("p",{class:"hint",text:"Bu gün programında ders yok."}));
+  }
+  /* programda olmayan (telafi) kayıtlar */
+  var extras = (map[di] || []).filter(function(e){
+    if(!e.sid) return true;
+    var c = course(e.code); if(!c) return true;
+    return !c.sessions.some(function(x){ return x.id === e.sid; });
+  });
+  if(extras.length){
+    var ul2 = el("ul",{class:"entries"});
+    extras.forEach(function(e){
+      var c = course(e.code), isArmed = armed === e.id;
+      ul2.appendChild(el("li",null,[
+        el("div",{class:"d"},[ el("b",{text:c ? label(c) : e.code}), el("span",{text:(e.note || "telafi") }), el("span",{class:"stamp",text:stampText(e)}) ]),
+        el("div",{class:"h",text:e.hours+" saat"}),
+        el("button",{class:"del"+(isArmed?" arm":""),type:"button","aria-label":isArmed?"Silmeyi onayla":"Sil",text:isArmed?"Sil":"×",onclick:function(){
+          if(isArmed){ armed = null; removeEntry(e.id); } else { armed = e.id; renderCalendar(); }
+        }})
+      ]));
+    });
+    body.appendChild(ul2);
+  }
+}
+function renderAll(map){
+  var body = document.getElementById("allBody");
+  body.textContent = "";
+  body.appendChild(el("h2",{text:"Tüm devamsızlıklar"}));
+  var dates = Object.keys(map).sort().reverse();
+  if(!dates.length){ body.appendChild(el("p",{class:"hint",text:"Henüz devamsızlık yok."})); return; }
+  var total = state.entries.reduce(function(a,e){ return a + (+e.hours||0); },0);
+  body.appendChild(el("p",{class:"hint",text:"Toplam " + dates.length + " gün, " + total + " saat."}));
+  var lastKey = "";
+  dates.forEach(function(di){
+    var dt = parseIso(di), key = dt.getFullYear() + "-" + dt.getMonth();
+    if(key !== lastKey){
+      lastKey = key;
+      var mh = 0; dates.forEach(function(x){ var t = parseIso(x); if(t.getFullYear()===dt.getFullYear() && t.getMonth()===dt.getMonth()) map[x].forEach(function(e){ mh += +e.hours||0; }); });
+      body.appendChild(el("div",{class:"mhead"},[ MONTHS[dt.getMonth()] + " " + dt.getFullYear(), el("span",{text:mh + " saat"}) ]));
+    }
+    map[di].forEach(function(e){
+      var c = course(e.code);
+      body.appendChild(el("button",{class:"mrow",type:"button",onclick:function(){
+        calSel = di; calMonth = new Date(dt.getFullYear(), dt.getMonth(), 1); renderCalendar(); window.scrollTo({top:0, behavior:"smooth"});
+      }},[ el("div",null,[ el("b",{text:dt.getDate() + " " + MONTHS[dt.getMonth()].slice(0,3) + " " + DAYS[dt.getDay()]}), " " + (c ? (title(c) || c.name) : e.code) ]), el("span",{text:e.hours + " saat"}) ]));
+    });
+  });
+}
+
+/* ---------- sekmeler ---------- */
+var TABS = ["today","courses","cal","more"];
+var TITLES = {today:"Devamsızlık", courses:"Dersler", cal:"Takvim", more:"Diğer"};
+var tab = "today";
+function switchTab(t, dir){
+  if(TABS.indexOf(t) < 0) return;
+  var prev = tab; tab = t;
+  TABS.forEach(function(x){
+    var sec = document.getElementById("tab-" + x);
+    sec.hidden = x !== t;
+    sec.classList.remove("in-l","in-r");
+  });
+  var sec = document.getElementById("tab-" + t);
+  var mv = dir || (TABS.indexOf(t) > TABS.indexOf(prev) ? "in-r" : "in-l");
+  if(prev !== t && !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)){ void sec.offsetWidth; sec.classList.add(mv); }
+  document.querySelectorAll(".tabbar button").forEach(function(b){
+    if(b.getAttribute("data-tab") === t) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current");
+  });
+  document.getElementById("pageTitle").textContent = TITLES[t];
+  document.getElementById("todayDate").textContent = t === "today" ? fmt(todayIso()) : "";
+  render();
+  if(prev !== t) window.scrollTo(0,0);
+}
+document.querySelectorAll(".tabbar button").forEach(function(b){
+  b.addEventListener("click", function(){ switchTab(b.getAttribute("data-tab")); });
+});
+(function(){
+  var x0 = null, y0 = 0, t0 = 0;
+  document.addEventListener("touchstart", function(e){
+    if(e.touches.length !== 1 || e.target.closest("input,select,textarea,.grid7,.mini,.stepper,.daychips")){ x0 = null; return; }
+    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now();
+  }, {passive:true});
+  document.addEventListener("touchend", function(e){
+    if(x0 === null) return;
+    var dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+    x0 = null;
+    if(Date.now() - t0 > 600 || Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.8) return;
+    var i = TABS.indexOf(tab) + (dx < 0 ? 1 : -1);
+    if(i >= 0 && i < TABS.length) switchTab(TABS[i]);
+  }, {passive:true});
+})();
+
 function render(){
   renderToday();
   renderRisk();
-  var box = document.getElementById("courses");
-  box.textContent = "";
-  if(!state.courses.length){
-    box.appendChild(el("div",{class:"emptybox"},[ el("b",{text:"Henüz ders yok."}), el("p",{text:"Aşağıdaki Ders ekle kısmından başla."}) ]));
+  if(tab === "today") renderStatus();
+  if(tab === "courses"){
+    var box = document.getElementById("courses");
+    box.textContent = "";
+    if(!state.courses.length){
+      box.appendChild(el("div",{class:"emptybox"},[ el("b",{text:"Henüz ders yok."}), el("p",{text:"Aşağıdaki Ders ekle kısmından başla."}) ]));
+    }
+    state.courses.forEach(function(c){ box.appendChild(renderCourse(c)); });
+    renderAdd();
   }
-  state.courses.forEach(function(c){ box.appendChild(renderCourse(c)); });
-  renderAdd();
-  renderProgram();
-  renderSettings();
+  if(tab === "cal") renderCalendar();
+  if(tab === "more"){ renderProgram(); renderSettings(); }
   document.getElementById("ruleLine").textContent = "Limit = haftalık ders saati × " + W() + " hafta. 1 kutu = 1 ders saati.";
 }
 
@@ -993,11 +1260,50 @@ document.addEventListener("visibilitychange", function(){
   if(document.visibilityState === "visible"){ render(); syncNow(); }
 });
 
-render();
+switchTab("today");
 renderAccount();
 
 var lastDay = todayIso();
 setInterval(function(){ if(todayIso() !== lastDay){ lastDay = todayIso(); render(); } }, 60000);
+
+/* ---------- ana ekrana yükleme ---------- */
+(function(){
+  var banner = document.getElementById("installBanner");
+  var text = document.getElementById("installText");
+  var btn = document.getElementById("installBtn");
+  var KEY = "devamsizlik-install-hidden";
+  var deferred = null;
+  function standalone(){ return (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true; }
+  function hiddenByUser(){ try{ return localStorage.getItem(KEY) === "1"; }catch(e){ return false; } }
+  function show(msg, withButton){
+    if(standalone() || hiddenByUser()) return;
+    text.textContent = msg; btn.hidden = !withButton; banner.hidden = false;
+  }
+  document.getElementById("installClose").addEventListener("click", function(){
+    banner.hidden = true; try{ localStorage.setItem(KEY, "1"); }catch(e){}
+  });
+  window.addEventListener("beforeinstallprompt", function(e){
+    e.preventDefault(); deferred = e;
+    show("Uygulama gibi kullanmak için telefonuna yükle. İkonu olur, internetsiz de açılır.", true);
+  });
+  btn.addEventListener("click", function(){
+    if(!deferred) return;
+    deferred.prompt();
+    deferred.userChoice.then(function(){ deferred = null; banner.hidden = true; }).catch(function(){});
+  });
+  window.addEventListener("appinstalled", function(){ banner.hidden = true; });
+  if(standalone()) return;
+  var ua = navigator.userAgent || "";
+  var ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  var inApp = /Instagram|FBAN|FBAV|Line\//.test(ua);
+  if(inApp){ show("Bu sayfa uygulama içi tarayıcıda açıldı. Sağ üstteki menüden tarayıcıda aç, sonra telefonuna yükleyebilirsin.", false); return; }
+  if(ios){ show("Yüklemek için alttaki Paylaş butonuna bas, \"Ana Ekrana Ekle\"yi seç. Sonra hep ikondan aç.", false); return; }
+  if(/Android/.test(ua)){
+    setTimeout(function(){
+      if(!deferred) show("Yüklemek için Chrome'da sağ üstteki üç noktaya bas, \"Uygulamayı yükle\"yi seç. Zaten yüklüyse ana ekrandaki ikondan aç.", false);
+    }, 4000);
+  }
+})();
 
 /* çevrimdışı çalışma + kalıcı depolama */
 if("serviceWorker" in navigator){
