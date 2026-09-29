@@ -139,6 +139,13 @@ summary{cursor:pointer;color:var(--accent);font-size:15px}
 
 .addcourse{margin-top:14px;padding:4px 14px 14px}
 .addcourse details{margin-top:10px}
+.cloud{padding:12px 14px;margin:-6px 0 22px;display:flex;gap:12px;align-items:center;justify-content:space-between}
+.cloud p{margin:0;font-size:14px;color:var(--muted)}
+.cloud .gbtn{flex:none;height:40px;padding:0 14px;border:0;border-radius:8px;background:var(--accent);color:var(--accent-ink);font-weight:600;cursor:pointer}
+.acct{padding:12px 14px 14px;margin-top:14px}
+.acct b{font-weight:600}
+.acct .st{font-size:14px;color:var(--muted);margin:4px 0 0}
+.acct .st.err{color:var(--red)}
 footer{margin-top:22px;color:var(--muted);font-size:13px}
 footer p{margin:4px 0}
 
@@ -151,6 +158,11 @@ footer p{margin:4px 0}
     <h1>Devamsızlık</h1>
     <div class="today-date" id="todayDate"></div>
   </header>
+
+  <div class="panel cloud" id="cloudBanner" hidden>
+    <p>Kayıtların sadece bu telefonda. Google ile giriş yap, telefon sıfırlansa da geri gelsin.</p>
+    <button class="gbtn" type="button" id="signInTop">Giriş yap</button>
+  </div>
 
   <section class="panel today" aria-labelledby="todayTitle">
     <div class="today-head">
@@ -190,9 +202,14 @@ footer p{margin:4px 0}
     </details>
   </div>
 
+  <div class="panel acct" id="acct">
+    <h2>Bulut yedeği</h2>
+    <div id="acctBody"><p class="st">Yükleniyor…</p></div>
+  </div>
+
   <footer>
     <p>Limit = haftalık ders saati × 4 hafta. 1 kutu = 1 ders saati.</p>
-    <p id="syncState">Kayıtlar bu telefonda tutuluyor.</p>
+    <p id="syncState"></p>
   </footer>
 </div>
 
@@ -219,7 +236,8 @@ function defaults(){
       {code:"MAK213",name:"Ölçme Tekniği ve Değerlendirme",sessions:[{id:"s213",d:3,t:"10:15–12:00",h:2}]},
       {code:"MAK215",name:"İmal Usulleri",sessions:[{id:"s215",d:4,t:"09:15–12:00",h:3}]}
     ],
-    entries:[]
+    entries:[],
+    delE:{}, delC:{}, updatedAt:0
   };
 }
 
@@ -228,6 +246,9 @@ function normalize(d){
   if(!Array.isArray(s.courses)) s = defaults();
   if(!Array.isArray(s.entries)) s.entries = [];
   s.courses.forEach(function(c){ if(!Array.isArray(c.sessions)) c.sessions = []; });
+  if(!s.delE || typeof s.delE !== "object") s.delE = {};
+  if(!s.delC || typeof s.delC !== "object") s.delC = {};
+  if(typeof s.updatedAt !== "number") s.updatedAt = 0;
   return s;
 }
 
@@ -260,11 +281,47 @@ function used(c){ return state.entries.filter(function(e){ return e.code===c.cod
 function course(code){ for(var i=0;i<state.courses.length;i++) if(state.courses[i].code===code) return state.courses[i]; return null; }
 function zone(u,w){ if(!w) return 0; if(u > w*WEEKS) return 3; if(u > w*3) return 2; if(u > w*2) return 1; return 0; }
 
-/* ---------- kayıt (sadece bu telefonda) ---------- */
-function save(){
+/* ---------- kayıt ---------- */
+function persistLocal(){
   try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
   catch(e){ document.getElementById("syncState").textContent = "Kaydedilemedi: telefonun depolama alanını kontrol et"; }
 }
+function save(){
+  state.updatedAt = Date.now();
+  persistLocal();
+  scheduleSync(1500);
+}
+
+/* iki kaydı birleştir: silinenler mezar taşıyla hatırlanır, hiçbir kayıt kaybolmaz */
+function merge(a, b){
+  var delE = {}, delC = {}, k;
+  [a.delE, b.delE].forEach(function(o){ for(k in o) delE[k] = Math.max(delE[k]||0, o[k]); });
+  [a.delC, b.delC].forEach(function(o){ for(k in o) delC[k] = Math.max(delC[k]||0, o[k]); });
+  var seen = {}, entries = [];
+  a.entries.concat(b.entries).forEach(function(e){
+    if(seen[e.id] || (e.id in delE)) return;
+    seen[e.id] = 1; entries.push(e);
+  });
+  entries.sort(function(x,y){ return x.date < y.date ? 1 : x.date > y.date ? -1 : (x.id < y.id ? -1 : x.id > y.id ? 1 : 0); });
+  var newer = (a.updatedAt||0) >= (b.updatedAt||0) ? a : b, older = newer === a ? b : a;
+  var byCode = {}, order = [];
+  newer.courses.concat(older.courses).forEach(function(c){
+    var ex = byCode[c.code];
+    if(!ex){ byCode[c.code] = c; order.push(c.code); }
+    else if((c.u||0) > (ex.u||0)) byCode[c.code] = c;
+  });
+  var courses = order.map(function(code){ return byCode[code]; }).filter(function(c){
+    return !(c.code in delC) || (c.addedAt||0) > delC[c.code];
+  });
+  return normalize({v:1, courses:courses, entries:entries, delE:delE, delC:delC,
+    updatedAt: Math.max(a.updatedAt||0, b.updatedAt||0)});
+}
+function stable(v){
+  if(Array.isArray(v)) return "[" + v.map(stable).join(",") + "]";
+  if(v && typeof v === "object") return "{" + Object.keys(v).sort().map(function(k){ return JSON.stringify(k) + ":" + stable(v[k]); }).join(",") + "}";
+  return JSON.stringify(v);
+}
+function canon(s){ return stable({c:s.courses, e:s.entries, de:s.delE, dc:s.delC}); }
 
 /* ---------- işlemler ---------- */
 function addEntry(code, date, hours, sidv, note){
@@ -274,6 +331,7 @@ function addEntry(code, date, hours, sidv, note){
 }
 function removeEntry(id){
   state.entries = state.entries.filter(function(e){ return e.id !== id; });
+  state.delE[id] = Date.now();
   save(); render();
 }
 function findEntry(code, date, sidv){
@@ -470,7 +528,7 @@ function renderDetail(c, w){
     sul.appendChild(el("li",null,[
       el("span",{text: DAYS_LONG[s.d]+" "+s.t+", "+s.h+" saat"}),
       el("button",{class:"del",type:"button","aria-label":"Oturumu kaldır",text:"×",onclick:function(){
-        c.sessions = c.sessions.filter(function(x){ return x.id!==s.id; }); save(); render();
+        c.sessions = c.sessions.filter(function(x){ return x.id!==s.id; }); c.u = Date.now(); save(); render();
       }})
     ]));
   });
@@ -489,14 +547,18 @@ function renderDetail(c, w){
     var h = parseInt(hIn.value,10);
     if(!(h>=1 && h<=8)){ smsg.textContent = "Ders saati 1 ile 8 arası olmalı."; return; }
     c.sessions.push({id:sid(), d:+daySel.value, t:(timeIn.value.trim()||"saat girilmedi").replace("-","–"), h:h});
+    c.u = Date.now();
     drafts[c.code] = null; save(); render();
   }}));
   det.appendChild(smsg);
   {
     det.appendChild(el("button",{class:"ghost danger",type:"button",text:"Dersi kaldır",onclick:function(){
       if(armed === "course:"+c.code){
+        var now = Date.now();
         state.courses = state.courses.filter(function(x){ return x.code!==c.code; });
+        state.entries.forEach(function(e){ if(e.code===c.code) state.delE[e.id] = now; });
         state.entries = state.entries.filter(function(e){ return e.code!==c.code; });
+        state.delC[c.code] = now;
         armed = null; openCode = null; save(); render();
       } else { armed = "course:"+c.code; this.textContent = "Emin misin? Kayıtları da silinir, tekrar bas"; }
     }}));
@@ -533,7 +595,8 @@ document.getElementById("ncAdd").addEventListener("click", function(){
   var m = document.getElementById("ncMsg");
   if(!code){ m.textContent = "Kod gir."; return; }
   if(course(code)){ m.textContent = code+" zaten listede."; return; }
-  state.courses.push({code:code, name:name||code, sessions:[], custom:true});
+  var t = Date.now();
+  state.courses.push({code:code, name:name||code, sessions:[], custom:true, addedAt:t, u:t});
   document.getElementById("ncCode").value = ""; document.getElementById("ncName").value = "";
   m.textContent = ""; document.getElementById("addCourseBox").removeAttribute("open");
   openCode = code; save(); render();
@@ -563,10 +626,144 @@ document.getElementById("bkLoad").addEventListener("click", function(){
     var d = JSON.parse(ta.value);
     if(!d || !Array.isArray(d.courses) || !Array.isArray(d.entries)) throw new Error("x");
     if(!btn.dataset.arm){ btn.dataset.arm = "1"; btn.textContent = "Şu anki kayıtların silinip yedek gelecek. Tekrar bas"; return; }
-    state = normalize(d); delete btn.dataset.arm; btn.textContent = "Yedeği geri yükle";
+    state = normalize(d); state.updatedAt = Date.now(); delete btn.dataset.arm; btn.textContent = "Yedeği geri yükle";
     ta.value = ""; save(); render(); bkMsg.textContent = "Yedek yüklendi.";
   }catch(e){ bkMsg.textContent = "Bu metin geçerli bir yedek değil. Kopyaladığın metnin tamamını yapıştır."; }
 });
+
+/* ---------- bulut yedeği (Firebase) ---------- */
+var FB_CONFIG = {
+  apiKey: "AIzaSyA14x2GTzQTFm_3J3kav93Ui0Lc9fnnlbE",
+  authDomain: "devamsizlik-946e2.firebaseapp.com",
+  projectId: "devamsizlik-946e2",
+  storageBucket: "devamsizlik-946e2.firebasestorage.app",
+  messagingSenderId: "109371052192",
+  appId: "1:109371052192:web:82ff27bf04ea1805d8b9c5"
+};
+var FB_BASE = "https://www.gstatic.com/firebasejs/12.19.0/";
+var fb = null, user = null, ref = null, cloudLoaded = false;
+var syncing = false, syncAgain = false, syncTimer = null;
+var cloudMsg = "", cloudErr = false, signOutArmed = false;
+
+function hhmm(d){ return (d.getHours()<10?"0":"") + d.getHours() + ":" + (d.getMinutes()<10?"0":"") + d.getMinutes(); }
+function setCloud(msg, err){ cloudMsg = msg; cloudErr = !!err; renderAccount(); }
+
+function errText(e){
+  var c = (e && e.code) || "";
+  if(c === "auth/popup-closed-by-user" || c === "auth/cancelled-popup-request") return "";
+  if(c === "auth/unauthorized-domain") return "Bu adres Firebase'de izinli değil. Authentication > Settings > Authorized domains kısmına emrekaya57.github.io eklenmeli.";
+  if(c === "auth/operation-not-allowed") return "Google girişi Firebase'de açık değil.";
+  if(c === "auth/network-request-failed" || c === "unavailable") return "İnternet yok. Bağlanınca tekrar dene.";
+  if(c === "permission-denied") return "Buluta yazma izni yok. Firestore kuralları yayınlanmamış olabilir.";
+  if(c === "not-found") return "Firestore veritabanı bulunamadı. Firebase'de oluşturulmamış olabilir.";
+  return "Hata: " + (c || (e && e.message) || "bilinmiyor");
+}
+
+function renderAccount(){
+  var body = document.getElementById("acctBody");
+  var banner = document.getElementById("cloudBanner");
+  body.textContent = "";
+  if(!fb){
+    banner.hidden = true;
+    body.appendChild(el("p",{class:"st",text: cloudLoaded ? "Bulut yedeği için internet gerekli. Kayıtlar şimdilik bu telefonda." : "Yükleniyor…"}));
+    return;
+  }
+  if(!user){
+    banner.hidden = false;
+    body.appendChild(el("p",{class:"st",text:"Giriş yapmadın. Kayıtlar sadece bu telefonda. Yedek, bu uygulamayı yayınlayan kişinin Firebase projesinde tutulur."}));
+    body.appendChild(el("button",{class:"primary",type:"button",text:"Google ile giriş yap",onclick:signIn}));
+    if(cloudMsg) body.appendChild(el("p",{class:"st"+(cloudErr?" err":""),text:cloudMsg}));
+    return;
+  }
+  banner.hidden = true;
+  body.appendChild(el("p",{class:"st"},[ "Giriş: ", el("b",{text:user.email||"Google hesabı"}) ]));
+  body.appendChild(el("p",{class:"st"+(cloudErr?" err":""),text:cloudMsg||"Eşitleniyor…"}));
+  body.appendChild(el("button",{class:"ghost",type:"button",text:"Şimdi eşitle",onclick:function(){ syncNow(); }}));
+  body.appendChild(el("button",{class:"ghost"+(signOutArmed?" danger":""),type:"button",
+    text: signOutArmed ? "Emin misin? Kayıtlar bu telefonda kalır, tekrar bas" : "Çıkış yap",
+    onclick:function(){
+      if(!signOutArmed){ signOutArmed = true; renderAccount(); return; }
+      signOutArmed = false;
+      fb.authM.signOut(fb.auth).catch(function(){});
+    }}));
+}
+
+function scheduleSync(delay){
+  if(!user) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(syncNow, delay||0);
+}
+
+function syncNow(){
+  if(!user || !fb || !ref) return;
+  if(syncing){ syncAgain = true; return; }
+  if(navigator.onLine === false){ setCloud("Çevrimdışı. İnternet gelince buluta yüklenecek."); return; }
+  syncing = true;
+  setCloud("Eşitleniyor…");
+  var myUid = user.uid;
+  fb.getDoc(ref).then(function(snap){
+    if(!user || user.uid !== myUid) return;
+    var remote = null;
+    if(snap.exists()){
+      try{ remote = normalize(JSON.parse(snap.data().data)); }catch(e){ remote = null; }
+    }
+    var merged = remote ? merge(state, remote) : state;
+    if(canon(merged) !== canon(state)){ state = merged; persistLocal(); render(); }
+    if(!remote || canon(merged) !== canon(remote)){
+      return fb.setDoc(ref, {data: JSON.stringify(merged), updatedAt: Date.now()});
+    }
+  }).then(function(){
+    setCloud("Buluta yedeklendi, saat " + hhmm(new Date()) + ".");
+  }).catch(function(e){
+    setCloud(errText(e) || "Eşitlenemedi.", true);
+  }).then(function(){
+    syncing = false;
+    if(syncAgain){ syncAgain = false; syncNow(); }
+  });
+}
+
+function signIn(){
+  if(!fb) return;
+  var A = fb.authM;
+  var provider = new A.GoogleAuthProvider();
+  provider.setCustomParameters({prompt:"select_account"});
+  setCloud("");
+  A.signInWithPopup(fb.auth, provider).catch(function(e){
+    var c = e && e.code;
+    if(c === "auth/popup-blocked" || c === "auth/operation-not-supported-in-this-environment"){
+      return A.signInWithRedirect(fb.auth, provider);
+    }
+    throw e;
+  }).catch(function(e){ var t = errText(e); if(t) setCloud(t, true); });
+}
+
+document.getElementById("signInTop").addEventListener("click", signIn);
+
+Promise.all([
+  import(FB_BASE + "firebase-app.js"),
+  import(FB_BASE + "firebase-auth.js"),
+  import(FB_BASE + "firebase-firestore-lite.js")
+]).then(function(m){
+  var app = m[0].initializeApp(FB_CONFIG);
+  var auth = m[1].getAuth(app);
+  auth.languageCode = "tr";
+  fb = {auth:auth, authM:m[1], db:m[2].getFirestore(app), getDoc:m[2].getDoc, setDoc:m[2].setDoc, doc:m[2].doc};
+  cloudLoaded = true;
+  m[1].getRedirectResult(auth).catch(function(e){ var t = errText(e); if(t) setCloud(t, true); });
+  m[1].onAuthStateChanged(auth, function(u){
+    user = u || null;
+    ref = user ? fb.doc(fb.db, "users", user.uid) : null;
+    cloudMsg = ""; cloudErr = false; signOutArmed = false;
+    renderAccount();
+    if(user) syncNow();
+  });
+}).catch(function(){ cloudLoaded = true; renderAccount(); });
+
+window.addEventListener("online", function(){ syncNow(); });
+document.addEventListener("visibilitychange", function(){
+  if(document.visibilityState === "visible"){ render(); syncNow(); }
+});
+renderAccount();
 
 /* çevrimdışı çalışma + kalıcı depolama */
 if("serviceWorker" in navigator){
