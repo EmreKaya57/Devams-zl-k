@@ -315,6 +315,29 @@ body.gated .tabbar{display:none}
 .gap::before,.gap::after{content:"";flex:1;border-top:1px dashed var(--line)}
 .gap::before{flex:0 0 10px}
 .gap.warn{color:var(--red)}
+
+.roomchip{color:var(--muted);border-style:dashed}
+.roomchip.has{color:var(--ink);border-style:solid;background:var(--panel)}
+.roomin{height:38px!important;width:auto!important;flex:1 1 120px;min-width:110px;border-radius:999px!important;padding:0 14px!important;font-size:14px}
+.trow.isoff,.occ li.isoff{opacity:.6;cursor:default}
+.tick.dis{border-style:dashed;opacity:.5}
+.imp,.examc{padding:12px 14px;margin-bottom:14px}
+.imp h2,.examc h2{font-size:18px;margin-bottom:2px}
+.imp .pending li{font-size:15px}
+.imp .row2{margin-top:12px}
+.imp .primary{margin-top:0}
+.xrow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);padding:10px 0;cursor:pointer}
+.xrow:first-of-type{border-top:0}
+.xrow .oi{flex:1;min-width:0}
+.xrow .oi b{font-weight:600;font-size:15px}
+.xdd{flex:none;font-family:var(--cond);font-weight:700;font-size:18px}
+.xdd.soon{color:var(--red)}
+.day.off{background:repeating-linear-gradient(135deg,var(--bg) 0 5px,var(--cell) 5px 10px);color:var(--muted)}
+.day.exam::before{content:"";position:absolute;top:5px;left:50%;transform:translateX(-50%);width:16px;height:3px;border-radius:2px;background:var(--amber)}
+.day.abs.exam::before{background:#fff}
+.lg-off{background:repeating-linear-gradient(135deg,var(--bg) 0 3px,var(--steel) 3px 5px)}
+.xline{margin:6px 0 0;font-size:15px;color:var(--ink);border-left:3px solid var(--amber);padding-left:10px}
+.offchips .chip{font-size:13px;padding:7px 11px}
 </style>
 </head>
 <body>
@@ -330,6 +353,7 @@ body.gated .tabbar{display:none}
       <button class="gbtn" type="button" id="installBtn" hidden>Yükle</button>
       <button class="del" type="button" id="installClose" aria-label="Kapat">×</button>
     </div>
+    <p class="hint" id="importMsg" style="margin:0 4px 10px"></p>
     <div id="nextBox"></div>
     <section class="panel today" aria-labelledby="todayTitle">
       <div class="today-head">
@@ -400,6 +424,7 @@ body.gated .tabbar{display:none}
   </div>
 </div>
 
+<datalist id="roomList"></datalist>
 <nav class="tabbar" aria-label="Sayfalar"><div class="in">
   <button type="button" data-tab="today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M8 12.5l3 3 5-6"/></svg>Bugün</button>
   <button type="button" data-tab="prog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>Program</button>
@@ -429,7 +454,7 @@ function suggestHours(start, end){ var m = toMin(end) - toMin(start); return Mat
 
 /* ---------- durum ---------- */
 function defaults(){
-  return {v:2, courses:[], entries:[], delE:{}, delC:{}, settings:{weeks:4, start:"", su:0}, updatedAt:0};
+  return {v:2, courses:[], entries:[], offs:[], delE:{}, delC:{}, settings:{weeks:4, start:"", su:0}, updatedAt:0};
 }
 function normalize(d){
   var s = JSON.parse(JSON.stringify(d || {}));
@@ -448,6 +473,7 @@ function normalize(d){
       x.t = span(x.s, x.e);
     });
   });
+  if(!Array.isArray(s.offs)) s.offs = [];
   if(!s.delE || typeof s.delE !== "object") s.delE = {};
   if(!s.delC || typeof s.delC !== "object") s.delC = {};
   var st = s.settings || {};
@@ -554,7 +580,14 @@ function merge(a, b){
     return !(c.code in delC) || (c.addedAt||0) > delC[c.code];
   });
   var settings = (a.settings.su||0) >= (b.settings.su||0) ? a.settings : b.settings;
-  return normalize({v:2, courses:courses, entries:entries, delE:delE, delC:delC, settings:settings,
+  var offById = {}, offIds = [];
+  (a.offs||[]).concat(b.offs||[]).forEach(function(o){
+    if(o.id in delE) return;
+    var ex = offById[o.id];
+    if(!ex){ offById[o.id] = o; offIds.push(o.id); } else if((o.u||0) > (ex.u||0)) offById[o.id] = o;
+  });
+  var offs = offIds.map(function(i){ return offById[i]; }).sort(function(x,y){ return x.date < y.date ? -1 : x.date > y.date ? 1 : (x.id < y.id ? -1 : 1); });
+  return normalize({v:2, courses:courses, entries:entries, offs:offs, delE:delE, delC:delC, settings:settings,
     updatedAt: Math.max(a.updatedAt||0, b.updatedAt||0)});
 }
 function stable(v){
@@ -562,7 +595,119 @@ function stable(v){
   if(v && typeof v === "object") return "{" + Object.keys(v).sort().map(function(k){ return JSON.stringify(k) + ":" + stable(v[k]); }).join(",") + "}";
   return JSON.stringify(v);
 }
-function canon(s){ return stable({c:s.courses, e:s.entries, de:s.delE, dc:s.delC, st:s.settings}); }
+function canon(s){ return stable({c:s.courses, e:s.entries, of:s.offs, de:s.delE, dc:s.delC, st:s.settings}); }
+
+/* ---------- tatil / iptal ---------- */
+function offOn(date, sessId){
+  var r = "";
+  state.offs.forEach(function(o){ if(o.date === date){ if(!o.sid) r = "Tatil"; else if(sessId && o.sid === sessId && r !== "Tatil") r = "İptal"; } });
+  return r;
+}
+function findOff(date, sessId){ return state.offs.filter(function(o){ return o.date === date && (o.sid || null) === (sessId || null); })[0] || null; }
+function toggleOff(date, sessId){
+  var ex = findOff(date, sessId), now = Date.now();
+  if(ex){ state.offs = state.offs.filter(function(o){ return o !== ex; }); state.delE[ex.id] = now; }
+  else {
+    state.offs.push({id:sid(), date:date, sid:sessId || null, u:now});
+    /* o gün/derse girilmiş devamsızlık varsa kaldır: tatilde devamsızlık olmaz */
+    state.entries = state.entries.filter(function(e){
+      var hit = e.date === date && e.sid && (!sessId || e.sid === sessId);
+      if(hit) state.delE[e.id] = now;
+      return !hit;
+    });
+  }
+  save(); render();
+}
+
+/* ---------- sınavlar ---------- */
+var EXAM_TYPES = ["Vize","Final","Bütünleme","Quiz"];
+function upcomingExams(days){
+  var t = todayIso(), out = [];
+  state.courses.forEach(function(c){ (c.exams || []).forEach(function(x){
+    var dd = dayDiff(t, x.date);
+    if(dd >= 0 && dd <= days) out.push({c:c, x:x, dd:dd});
+  }); });
+  out.sort(function(a,b){ return a.dd - b.dd || String(a.x.time||"").localeCompare(String(b.x.time||"")); });
+  return out;
+}
+function examsOn(date){
+  var out = [];
+  state.courses.forEach(function(c){ (c.exams || []).forEach(function(x){ if(x.date === date) out.push({c:c, x:x}); }); });
+  return out;
+}
+function ddText(dd){ return dd === 0 ? "Bugün" : dd === 1 ? "Yarın" : dd + " gün"; }
+
+/* ---------- program paylaşma ---------- */
+var PENDING_KEY = "devamsizlik-import";
+function b64e(str){ return btoa(unescape(encodeURIComponent(str))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
+function b64d(str){ str = str.replace(/-/g,"+").replace(/_/g,"/"); while(str.length % 4) str += "="; return decodeURIComponent(escape(atob(str))); }
+function programCode(){
+  return b64e(JSON.stringify({v:1, c: state.courses.map(function(c){
+    return [c.name, title(c),
+      c.sessions.map(function(x){ return [+x.d, x.s, x.e, +x.h, x.online ? 1 : 0, x.room || ""]; }),
+      (c.exams || []).map(function(x){ return [x.type, x.date, x.time || ""]; })];
+  })}));
+}
+function parseProgram(code){
+  try{
+    var o = JSON.parse(b64d(code)), T = /^\d{2}:\d{2}$/, D = /^\d{4}-\d{2}-\d{2}$/;
+    if(!o || !Array.isArray(o.c)) return null;
+    var list = [];
+    o.c.slice(0, 30).forEach(function(r){
+      if(!Array.isArray(r) || typeof r[0] !== "string" || !r[0].trim()) return;
+      var sess = (Array.isArray(r[2]) ? r[2] : []).slice(0, 12).filter(function(x){
+        return Array.isArray(x) && x[0] >= 0 && x[0] <= 6 && T.test(x[1]) && T.test(x[2]) && toMin(x[2]) > toMin(x[1]);
+      }).map(function(x){
+        var o2 = {d:+x[0], s:x[1], e:x[2], h:clamp(x[3],1,8), t:span(x[1], x[2])};
+        if(x[4]) o2.online = true;
+        if(typeof x[5] === "string" && x[5].trim()) o2.room = x[5].trim().slice(0, 40);
+        return o2;
+      });
+      var exams = (Array.isArray(r[3]) ? r[3] : []).slice(0, 10).filter(function(x){
+        return Array.isArray(x) && EXAM_TYPES.indexOf(x[0]) >= 0 && D.test(x[1]);
+      }).map(function(x){ return {type:x[0], date:x[1], time: T.test(x[2]) ? x[2] : ""}; });
+      list.push({name:r[0].trim().slice(0, 80), code: typeof r[1] === "string" ? r[1].trim().slice(0, 20) : "", sessions:sess, exams:exams});
+    });
+    return list.length ? list : null;
+  }catch(e){ return null; }
+}
+function importProgram(list){
+  var added = 0, skipped = 0, t = Date.now();
+  list.forEach(function(it){
+    var exists = state.courses.some(function(c){
+      return (it.code && title(c).toUpperCase() === it.code.toUpperCase()) || c.name.toLocaleLowerCase("tr") === it.name.toLocaleLowerCase("tr");
+    });
+    if(exists){ skipped++; return; }
+    state.courses.push({code:"_" + sid(), cd: it.code.toUpperCase(), name: it.name,
+      sessions: it.sessions.map(function(x){ var y = JSON.parse(JSON.stringify(x)); y.id = sid(); return y; }),
+      exams: it.exams.map(function(x){ return {id:sid(), type:x.type, date:x.date, time:x.time}; }),
+      custom:true, addedAt:t, u:t});
+    added++;
+  });
+  return {added:added, skipped:skipped};
+}
+function shareProgram(){
+  var m = document.getElementById("progShareMsg");
+  if(!state.courses.length){ if(m) m.textContent = "Önce ders ekle."; return; }
+  var url = location.origin + location.pathname + "#p=" + programCode();
+  var text = "Ders programım. Linki açıp giriş yapınca 'Programı ekle'ye bas, dersler saatleriyle sende de olur:";
+  if(navigator.share){ navigator.share({title:"Ders programı", text:text, url:url}).catch(function(){}); return; }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text + " " + url).then(function(){ if(m) m.textContent = "Link kopyalandı. WhatsApp'ta sınıf grubuna yapıştır."; },
+      function(){ if(m) m.textContent = url; });
+  } else if(m) m.textContent = url;
+}
+function grabShared(){
+  var h = location.hash || "";
+  if(h.indexOf("#p=") !== 0) return false;
+  try{ localStorage.setItem(PENDING_KEY, h.slice(3)); }catch(e){}
+  try{ history.replaceState(null, "", location.pathname + location.search); }catch(e){}
+  return true;
+}
+grabShared();
+window.addEventListener("hashchange", function(){ if(grabShared() && typeof switchTab === "function") switchTab("today"); });
+function pendingImport(){ try{ return localStorage.getItem(PENDING_KEY) || ""; }catch(e){ return ""; } }
+function clearImport(){ try{ localStorage.removeItem(PENDING_KEY); }catch(e){} }
 
 /* ---------- işlemler ---------- */
 function addEntry(code, date, hours, sidv, note){
@@ -624,7 +769,7 @@ function nameBlock(c, tag){
 }
 
 /* ---------- oturum formu (ekleme ve düzenleme) ---------- */
-function blankBuilder(){ return {d:null, s:"", e:"", h:2, hTouched:false, online:false, room:"", editId:null, msg:""}; }
+function blankBuilder(){ return {d:null, s:"", e:"", h:2, hTouched:false, online:false, room:"", roomEdit:false, editId:null, msg:""}; }
 function checkBuilder(b, existing){
   var empty = b.d===null && !b.s && !b.e && !b.editId;
   if(empty) return {status:"empty"};
@@ -660,9 +805,21 @@ function sessionBuilder(key, existing, onDone, addText){
   var eIn = el("input",{type:"time",id:"be-"+key,step:"60"}); eIn.value = b.e;
   sIn.addEventListener("change", function(){ b.s = sIn.value; timesChanged(); });
   eIn.addEventListener("change", function(){ b.e = eIn.value; timesChanged(); });
-  var roomIn = el("input",{type:"text",id:"br-"+key,autocomplete:"off",placeholder: b.online ? "ör. Teams, Zoom" : "ör. Derslik 101"});
-  roomIn.value = b.room;
-  roomIn.addEventListener("input", function(){ b.room = roomIn.value; });
+  /* derslik: ayrı kutu yok, "Ders şekli" satırında küçük bir çip */
+  var roomChip;
+  if(b.roomEdit){
+    roomChip = el("input",{type:"text",class:"roomin",id:"br-"+key,autocomplete:"off",list:"roomList",enterkeyhint:"done",
+      "aria-label": b.online ? "Platform" : "Derslik", placeholder: b.online ? "ör. Teams" : "ör. Derslik 101"});
+    roomChip.value = b.room;
+    var closeRoom = function(){ if(!b.roomEdit) return; b.room = roomChip.value.trim(); b.roomEdit = false; redraw(); };
+    roomChip.addEventListener("keydown", function(ev){ if(ev.key === "Enter"){ ev.preventDefault(); closeRoom(); } });
+    roomChip.addEventListener("change", closeRoom);
+    roomChip.addEventListener("blur", closeRoom);
+    setTimeout(function(){ try{ roomChip.focus(); }catch(e){} }, 0);
+  } else {
+    roomChip = el("button",{class:"chip roomchip" + (b.room ? " has" : ""),type:"button",onclick:function(){ b.roomEdit = true; redraw(); }},
+      [ b.room ? b.room : (b.online ? "+ Platform" : "+ Derslik") ]);
+  }
   box.appendChild(el("span",{class:"flabel",text:"Gün"}));
   box.appendChild(chips);
   box.appendChild(el("div",{class:"fgrid"},[
@@ -674,18 +831,18 @@ function sessionBuilder(key, existing, onDone, addText){
         el("output",{text:b.h + " ders saati"}),
         el("button",{type:"button","aria-label":"Artır",text:"+",onclick:function(){ if(b.h<8){ b.h++; b.hTouched = true; b.msg = ""; redraw(); } }})
       ]) ]),
-    el("div",{class:"field full"},[ el("span",{class:"flabel",text:"Ders şekli"}),
+    el("div",{class:"field full"},[ el("span",{class:"flabel",text:"Nerede"}),
       el("div",{class:"daychips"},[
         el("button",{class:"chip",type:"button","aria-pressed":String(!b.online),text:"Yüz yüze",onclick:function(){ b.online = false; redraw(); }}),
-        el("button",{class:"chip",type:"button","aria-pressed":String(!!b.online),onclick:function(){ b.online = true; redraw(); }},[ onlineIcon(), " Uzaktan" ])
-      ]) ]),
-    el("div",{class:"field full"},[ el("label",{for:"br-"+key,text: b.online ? "Platform (isteğe bağlı)" : "Derslik (isteğe bağlı)"}), roomIn ])
+        el("button",{class:"chip",type:"button","aria-pressed":String(!!b.online),onclick:function(){ b.online = true; redraw(); }},[ onlineIcon(), " Uzaktan" ]),
+        roomChip
+      ]) ])
   ]));
   var chk = checkBuilder(b, existing);
   box.appendChild(el("p",{class:"preview"},
     chk.status === "ok" ? [ chk.sess.online ? onlineIcon() : null, DAYS_LONG[chk.sess.d] + " " + chk.sess.t + ", " + chk.sess.h + " ders saati" + (where(chk.sess) ? ", " + where(chk.sess) : "") ]
                         : [ "Gün, başlangıç ve bitişi seç" ]));
-  box.appendChild(el("p",{class:"hint",text:"Ders saati, devamsızlığın kaç saat yazıldığıdır. Saatlere göre tahmin edilir, okulunda farklıysa değiştir."}));
+  box.appendChild(el("p",{class:"hint",text:"Ders saati saatlere göre tahmin edilir, okulunda farklıysa değiştir."}));
   var row = el("div",{class:"row2"});
   row.appendChild(el("button",{class:"ghost",type:"button",style:"margin-top:0",text: b.editId ? "Değişikliği uygula" : addText,onclick:function(){
     var r = checkBuilder(b, existing);
@@ -693,7 +850,7 @@ function sessionBuilder(key, existing, onDone, addText){
     if(r.status !== "ok"){ b.msg = r.msg; redraw(); return; }
     var wasEdit = !!b.editId;
     builders[key] = blankBuilder();
-    builders[key].s = b.s; builders[key].e = b.e; builders[key].h = b.h; builders[key].online = b.online;
+    builders[key].s = b.s; builders[key].e = b.e; builders[key].h = b.h; builders[key].online = b.online; builders[key].room = b.room;
     onDone(r.sess, wasEdit);
   }}));
   if(b.editId) row.appendChild(el("button",{class:"ghost",type:"button",style:"margin-top:0",text:"Vazgeç",onclick:function(){ builders[key] = blankBuilder(); redraw(); }}));
@@ -721,16 +878,16 @@ function allSessions(){
 }
 function relMin(m){ if(m < 60) return m + " dk"; var h = Math.floor(m/60), r = m % 60; return h + " sa" + (r ? " " + r + " dk" : ""); }
 function nextInfo(){
-  var now = new Date(), nm = now.getHours()*60 + now.getMinutes(), dow = now.getDay();
+  var now = new Date(), nm = now.getHours()*60 + now.getMinutes(), dow = now.getDay(), t0 = todayIso();
   var list = allSessions();
   if(!list.length) return null;
-  var today = list.filter(function(x){ return +x.s.d === dow; }).sort(function(a,b){ return toMin(a.s.s) - toMin(b.s.s); });
+  var today = list.filter(function(x){ return +x.s.d === dow && !offOn(t0, x.s.id); }).sort(function(a,b){ return toMin(a.s.s) - toMin(b.s.s); });
   var cur = today.filter(function(x){ return toMin(x.s.s) <= nm && nm < toMin(x.s.e); })[0] || null;
   var nxt = today.filter(function(x){ return toMin(x.s.s) > nm; })[0] || null, inDays = 0;
   if(!nxt){
     for(var k=1; k<=7 && !nxt; k++){
-      var d = (dow + k) % 7;
-      var cand = list.filter(function(x){ return +x.s.d === d; }).sort(function(a,b){ return toMin(a.s.s) - toMin(b.s.s); });
+      var d = (dow + k) % 7, dk = new Date(now); dk.setDate(dk.getDate() + k); var dki = iso(dk);
+      var cand = list.filter(function(x){ return +x.s.d === d && !offOn(dki, x.s.id); }).sort(function(a,b){ return toMin(a.s.s) - toMin(b.s.s); });
       if(cand.length){ nxt = cand[0]; inDays = k; }
     }
   }
@@ -755,6 +912,42 @@ function nextCard(){
   return box;
 }
 
+/* ---------- Bugün: kartlar ---------- */
+function importCard(){
+  var code = pendingImport();
+  if(!code || gateMode) return null;
+  var list = parseProgram(code);
+  if(!list){ clearImport(); return null; }
+  var box = el("div",{class:"panel imp"});
+  box.appendChild(el("h2",{text:"Paylaşılan program"}));
+  box.appendChild(el("p",{class:"sub",text: list.length + " ders, gün ve saatleriyle" + (list.some(function(x){ return x.exams.length; }) ? ", sınav tarihleri de var" : "") + ". Senin devamsızlıkların etkilenmez."}));
+  var ul = el("ul",{class:"pending"});
+  list.forEach(function(it){ ul.appendChild(el("li",null,[ el("span",{text:it.name}), el("span",{class:"sl",text:it.code || ""}) ])); });
+  box.appendChild(ul);
+  box.appendChild(el("div",{class:"row2"},[
+    el("button",{class:"ghost",type:"button",style:"margin-top:0",text:"Vazgeç",onclick:function(){ clearImport(); render(); }}),
+    el("button",{class:"primary",type:"button",style:"margin-top:0",text:"Programı ekle",onclick:function(){
+      var r = importProgram(list); clearImport(); save(); render();
+      var m = document.getElementById("importMsg");
+      if(m) m.textContent = r.added + " ders eklendi" + (r.skipped ? ", " + r.skipped + " ders zaten vardı" : "") + ".";
+    }})
+  ]));
+  return box;
+}
+function examCard(){
+  var list = upcomingExams(30).slice(0, 3);
+  if(!list.length) return null;
+  var box = el("div",{class:"panel examc"});
+  box.appendChild(el("h2",{text:"Yaklaşan sınavlar"}));
+  list.forEach(function(r){
+    box.appendChild(el("button",{class:"xrow",type:"button",onclick:function(){ openCode = r.c.code; switchTab("courses"); }},[
+      el("div",{class:"oi"},[ el("b",{text:r.c.name}), el("span",{class:"sl",text: r.x.type + ", " + fmt(r.x.date) + (r.x.time ? ", " + r.x.time : "")}) ]),
+      el("span",{class:"xdd" + (r.dd <= 3 ? " soon" : ""),text:ddText(r.dd)})
+    ]));
+  });
+  return box;
+}
+
 /* ---------- Bugün ---------- */
 function renderToday(){
   var box = document.getElementById("todayList");
@@ -762,12 +955,23 @@ function renderToday(){
   var t = todayIso(), dow = new Date().getDay();
   document.getElementById("todayDate").textContent = tab === "today" ? fmt(t) : "";
   var nb = document.getElementById("nextBox"); nb.textContent = "";
+  var ib = importCard(); if(ib) nb.appendChild(ib);
   var card = nextCard(); if(card) nb.appendChild(card);
+  var xc = examCard(); if(xc) nb.appendChild(xc);
   if(!state.courses.length){ box.appendChild(el("p",{class:"empty",text:"Önce Dersler sekmesinden derslerini ekle."})); return; }
   var rows = allSessions().filter(function(x){ return +x.s.d === dow; });
   rows.sort(function(a,b){ return toMin(a.s.s) - toMin(b.s.s); });
   if(!rows.length){ box.appendChild(el("p",{class:"empty",text:"Bugün dersin yok."})); return; }
   rows.forEach(function(r){
+    var off = offOn(t, r.s.id);
+    if(off){
+      box.appendChild(el("div",{class:"trow isoff"},[
+        el("span",{class:"tick dis"}),
+        el("div",{class:"tinfo"},[ el("b",{text:r.c.name}), sessLine(r.s, title(r.c)) ]),
+        el("span",{class:"tag soft",text:off})
+      ]));
+      return;
+    }
     var ex = findEntry(r.c.code, t, r.s.id);
     var input = el("input",{type:"checkbox","aria-label":r.c.name+" bugün kaçırıldı"});
     input.checked = !!ex;
@@ -838,6 +1042,11 @@ function fillDetail(d, c, w){
     var limit = showAll[c.code] ? occ.length : Math.min(occ.length, 8);
     var ul = el("ul",{class:"occ"});
     occ.slice(0, limit).forEach(function(o){
+      var off = offOn(o.date, o.s.id);
+      if(off){
+        ul.appendChild(el("li",{class:"isoff"},[ el("div",{class:"oi",style:"padding-left:38px"},[ el("b",{text:fmt(o.date)}), sessLine(o.s) ]), el("span",{class:"tag soft",text:off}) ]));
+        return;
+      }
       var ex = findEntry(c.code, o.date, o.s.id);
       var input = el("input",{type:"checkbox","aria-label":fmt(o.date)+" kaçırıldı"});
       input.checked = !!ex;
@@ -916,6 +1125,45 @@ function fillDetail(d, c, w){
     d.appendChild(ul2);
   }
 
+  /* 3b) sınavlar */
+  var exams = (c.exams || []).slice().sort(function(a,b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
+  var xdet = keepOpen(el("details",null,[ el("summary",{text: exams.length ? "Sınavlar (" + exams.length + ")" : "Sınav tarihi ekle"}) ]), "ex:"+c.code, false);
+  if(exams.length){
+    var xul = el("ul",{class:"entries"});
+    exams.forEach(function(x){
+      var dd = dayDiff(todayIso(), x.date);
+      xul.appendChild(el("li",null,[
+        el("div",{class:"d"},[ el("b",{text:x.type}), el("span",{text: fmt(x.date) + (x.time ? ", " + x.time : "")}) ]),
+        el("div",{class:"h",text: dd >= 0 ? ddText(dd) : "geçti"}),
+        el("button",{class:"del",type:"button","aria-label":"Sınavı sil",text:"×",onclick:function(){
+          c.exams = (c.exams || []).filter(function(y){ return y.id !== x.id; }); touchCourse(c); save(); render();
+        }})
+      ]));
+    });
+    xdet.appendChild(xul);
+  }
+  var xf = drafts["xf:"+c.code] || (drafts["xf:"+c.code] = {type:"Vize", date:"", time:"", msg:""});
+  var xType = el("div",{class:"daychips",style:"margin-top:10px"});
+  EXAM_TYPES.forEach(function(tp){
+    xType.appendChild(el("button",{class:"chip",type:"button","aria-pressed":String(xf.type===tp),text:tp,onclick:function(){ xf.type = tp; render(); }}));
+  });
+  var xDate = el("input",{type:"date",id:"xd-"+c.code}); xDate.value = xf.date;
+  var xTime = el("input",{type:"time",id:"xt-"+c.code}); xTime.value = xf.time;
+  xDate.addEventListener("change", function(){ xf.date = xDate.value; });
+  xTime.addEventListener("change", function(){ xf.time = xTime.value; });
+  xdet.appendChild(xType);
+  xdet.appendChild(el("div",{class:"fgrid"},[
+    el("div",{class:"field"},[ el("label",{for:"xd-"+c.code,text:"Tarih"}), xDate ]),
+    el("div",{class:"field"},[ el("label",{for:"xt-"+c.code,text:"Saat (isteğe bağlı)"}), xTime ])
+  ]));
+  xdet.appendChild(el("button",{class:"ghost",type:"button",text:"Sınavı ekle",onclick:function(){
+    if(!xf.date){ xf.msg = "Tarih seç."; render(); return; }
+    c.exams = (c.exams || []).concat([{id:sid(), type:xf.type, date:xf.date, time:xf.time || ""}]);
+    touchCourse(c); drafts["xf:"+c.code] = null; save(); render();
+  }}));
+  if(xf.msg) xdet.appendChild(el("p",{class:"hint err",text:xf.msg}));
+  d.appendChild(xdet);
+
   /* 4) dersi düzenle: ad, kod, oturumlar, tek kaydet butonu */
   var key = "c:" + c.code;
   var det = keepOpen(el("details",null,[ el("summary",{text: c.sessions.length ? "Dersi düzenle" : "Gün ve saat ekle"}) ]), "edit:"+c.code, !c.sessions.length);
@@ -938,7 +1186,7 @@ function fillDetail(d, c, w){
       el("span",{class:"sl"},[ s.online ? onlineIcon() : null, DAYS_LONG[s.d]+" "+s.t+", "+s.h+" saat" + (s.room ? ", " + s.room : "") ]),
       el("span",{class:"acts"},[
         el("button",{class:"del",type:"button","aria-label":"Düzenle",text:"Düzenle",onclick:function(){
-          builders[key] = {d:+s.d, s:s.s, e:s.e, h:+s.h, hTouched:true, online:!!s.online, room:s.room||"", editId:s.id, msg:""};
+          builders[key] = {d:+s.d, s:s.s, e:s.e, h:+s.h, hTouched:true, online:!!s.online, room:s.room||"", roomEdit:false, editId:s.id, msg:""};
           render();
         }}),
         el("button",{class:"del"+(isArmed?" arm":""),type:"button","aria-label":"Oturumu kaldır",text:isArmed?"Kaldır":"×",onclick:function(){
@@ -991,6 +1239,13 @@ function fillDetail(d, c, w){
 }
 
 /* ---------- ders ekleme ---------- */
+function renderRoomList(){
+  var dl = document.getElementById("roomList"); if(!dl) return;
+  var seen = {}, rooms = [];
+  allSessions().forEach(function(x){ var r = x.s.room; if(r && !seen[r]){ seen[r] = 1; rooms.push(r); } });
+  dl.textContent = "";
+  rooms.sort().forEach(function(r){ dl.appendChild(el("option",{value:r})); });
+}
 function renderAdd(){
   var box = document.getElementById("addPanel");
   box.textContent = "";
@@ -1075,7 +1330,8 @@ function renderProgram(){
         else if(gap < 0) sec.appendChild(el("div",{class:"gap warn"},[ el("span",{text:"Çakışıyor"}) ]));
       }
       var s0 = toMin(r.s.s), s1 = toMin(r.s.e), dur = Math.max(1, s1 - s0);
-      var isCur = d === dow && s0 <= nm && nm < s1;
+      var offToday = d === dow ? offOn(todayIso(), r.s.id) : "";
+      var isCur = d === dow && !offToday && s0 <= nm && nm < s1;
       var isNext = info && info.next && info.next.s.id === r.s.id && !isCur;
       var isPast = d === dow && nm >= s1;
       var color = courseColor(r.c), code = title(r.c), w = where(r.s);
@@ -1094,7 +1350,7 @@ function renderProgram(){
         rail,
         el("div",{class:"pc"},[
           el("div",{class:"pn"},[ el("b",{text:r.c.name}),
-            isCur ? el("span",{class:"tag",text:"Şu an"}) : isNext ? el("span",{class:"tag soft",text:"Sıradaki"}) : null ]),
+            offToday ? el("span",{class:"tag soft",text:offToday}) : isCur ? el("span",{class:"tag",text:"Şu an"}) : isNext ? el("span",{class:"tag soft",text:"Sıradaki"}) : null ]),
           el("span",{class:"pm"},[ r.s.online ? onlineIcon() : null, meta ]),
           el("span",{class:"pd",text: isCur ? "Bitişe " + durText(s1 - nm) : durText(dur)})
         ])
@@ -1109,6 +1365,10 @@ function renderProgram(){
   if(total){
     var onl = allSessions().filter(function(x){ return x.s.online; }).reduce(function(a,x){ return a + (+x.s.h||0); },0);
     body.appendChild(el("p",{class:"hint",style:"margin:12px 4px 0",text:"Haftada toplam " + total + " ders saati" + (onl ? ", bunun " + onl + " saati uzaktan." : ".")}));
+  }
+  if(state.courses.length){
+    body.appendChild(el("button",{class:"ghost",type:"button",style:"margin-top:14px",text:"Programı sınıfla paylaş",onclick:shareProgram}));
+    body.appendChild(el("p",{class:"hint",id:"progShareMsg",text:"Link açan arkadaşına derslerin gün, saat, derslik ve sınav tarihleriyle eklenir. Devamsızlıkların paylaşılmaz."}));
   }
 }
 
@@ -1217,7 +1477,8 @@ function renderCalendar(){
     var list = map[di] || [];
     var hrs = list.reduce(function(a,e){ return a + (+e.hours||0); },0);
     if(hrs){ monthHours += hrs; monthDays++; }
-    var cls = "day" + (hrs ? " abs" : "") + (!hrs && classDay(di) && di <= today ? " cls" : "") + (di > today ? " future" : "") + (di === today ? " today" : "") + (di === calSel ? " sel" : "");
+    var dayOff = offOn(di, null) === "Tatil", hasExam = examsOn(di).length > 0;
+    var cls = "day" + (hrs ? " abs" : "") + (dayOff ? " off" : "") + (hasExam ? " exam" : "") + (!hrs && !dayOff && classDay(di) && di <= today ? " cls" : "") + (di > today ? " future" : "") + (di === today ? " today" : "") + (di === calSel ? " sel" : "");
     (function(di, d, hrs, cls){
       grid.appendChild(el("button",{class:cls,type:"button","aria-label":fmt(di) + (hrs ? ", " + hrs + " saat devamsızlık" : ""),onclick:function(){ calSel = di; renderCalendar(); }},[
         el("span",{text:String(d)}), hrs ? el("span",{class:"hh",text:hrs+" s"}) : null
@@ -1228,6 +1489,8 @@ function renderCalendar(){
   body.appendChild(el("div",{class:"legend"},[
     el("span",null,[ el("i",{style:"background:var(--red)"}), "Devamsızlık" ]),
     el("span",null,[ el("i",{style:"background:var(--steel);opacity:.5;border-radius:50%"}), "Ders günü" ]),
+    el("span",null,[ el("i",{class:"lg-off"}), "Tatil" ]),
+    el("span",null,[ el("i",{style:"background:var(--amber);height:4px;vertical-align:2px"}), "Sınav" ]),
     el("span",{text: monthHours ? MONTHS[m] + ": " + monthDays + " gün, " + monthHours + " saat" : MONTHS[m] + ": devamsızlık yok"})
   ]));
   renderDay(map);
@@ -1240,7 +1503,25 @@ function renderDay(map){
   body.appendChild(el("h2",{text:fmt(di)}));
   var rows = allSessions().filter(function(x){ return +x.s.d === dow; });
   rows.sort(function(a,b){ return toMin(a.s.s) - toMin(b.s.s); });
-  if(di > today){
+  var dayOff = offOn(di, null) === "Tatil";
+  examsOn(di).forEach(function(r){
+    body.appendChild(el("p",{class:"xline"},[ el("b",{text: r.x.type + ": " + r.c.name}), r.x.time ? " " + r.x.time : "" ]));
+  });
+  if(rows.length){
+    var offRow = el("div",{class:"daychips offchips"},[
+      el("button",{class:"chip",type:"button","aria-pressed":String(dayOff),text:"Tüm gün tatil",onclick:function(){ toggleOff(di, null); }})
+    ]);
+    if(!dayOff) rows.forEach(function(r){
+      offRow.appendChild(el("button",{class:"chip",type:"button","aria-pressed":String(!!findOff(di, r.s.id)),text:r.c.name + " iptal",onclick:function(){ toggleOff(di, r.s.id); }}));
+    });
+    body.appendChild(el("p",{class:"flabel",style:"margin:10px 0 6px",text:"Tatil ya da iptal (devamsızlık girilmez)"}));
+    body.appendChild(offRow);
+  } else if(dayOff){
+    body.appendChild(el("button",{class:"ghost",type:"button",text:"Tatil işaretini kaldır",onclick:function(){ toggleOff(di, null); }}));
+  }
+  if(dayOff){
+    body.appendChild(el("p",{class:"hint",text:"Bu gün tatil olarak işaretli."}));
+  } else if(di > today){
     body.appendChild(el("p",{class:"hint",text: rows.length ? "Bu gün henüz gelmedi. O gün " + rows.length + " dersin var." : "Bu gün henüz gelmedi."}));
   } else if(state.settings.start && di < state.settings.start){
     body.appendChild(el("p",{class:"hint",text:"Dönem başlangıcından önce."}));
@@ -1248,6 +1529,11 @@ function renderDay(map){
     body.appendChild(el("p",{class:"hint",text:"Bu günün dersleri. Girmediklerini işaretle."}));
     var ul = el("ul",{class:"occ"});
     rows.forEach(function(r){
+      var off = offOn(di, r.s.id);
+      if(off){
+        ul.appendChild(el("li",{class:"isoff"},[ el("div",{class:"oi",style:"padding-left:38px"},[ el("b",{text:r.c.name}), sessLine(r.s, title(r.c)) ]), el("span",{class:"tag soft",text:off}) ]));
+        return;
+      }
       var ex = findEntry(r.c.code, di, r.s.id);
       var input = el("input",{type:"checkbox","aria-label":r.c.name+" kaçırıldı"});
       input.checked = !!ex;
@@ -1356,6 +1642,7 @@ document.querySelectorAll(".tabbar button").forEach(function(b){
 })();
 
 function render(){
+  renderRoomList();
   renderToday();
   renderRisk();
   if(tab === "today") renderStatus();
