@@ -929,7 +929,7 @@ function nameBlock(c, tag){
 }
 
 /* ---------- oturum formu (ekleme ve düzenleme) ---------- */
-function blankBuilder(){ return {d:null, s:"", e:"", h:2, hTouched:false, online:false, room:"", roomEdit:false, editId:null, msg:""}; }
+function blankBuilder(){ return {d:null, s:"", e:"", h:2, hTouched:false, online:false, room:"", roomEdit:false, editId:null, msg:"", note:""}; }
 function checkBuilder(b, existing){
   var empty = b.d===null && !b.s && !b.e && !b.editId;
   if(empty) return {status:"empty"};
@@ -1009,13 +1009,16 @@ function sessionBuilder(key, existing, onDone, addText){
     if(r.status !== "ok"){ b.msg = r.msg; redraw(); return; }
     var wasEdit = !!b.editId;
     builders[key] = blankBuilder();
-    builders[key].s = b.s; builders[key].e = b.e; builders[key].h = b.h; builders[key].online = b.online; builders[key].room = b.room;
+    builders[key].note = DAYS_LONG[r.sess.d] + " " + r.sess.t + (key === "new"
+      ? " eklendi. Başka günü yoksa aşağıdan Dersi kaydet'e bas."
+      : (wasEdit ? " güncellendi ve kaydedildi." : " eklendi ve kaydedildi."));
     onDone(r.sess, wasEdit);
   }}));
   if(b.editId) row.appendChild(el("button",{class:"ghost",type:"button",style:"margin-top:0",text:"Vazgeç",onclick:function(){ builders[key] = blankBuilder(); redraw(); }}));
   else if(b.d !== null || b.s || b.e || (b.room || "").trim()) row.appendChild(el("button",{class:"ghost",type:"button",style:"margin-top:0;flex:0 0 auto;padding:0 16px",text:"Temizle",onclick:function(){ builders[key] = blankBuilder(); redraw(); }}));
   box.appendChild(row);
   if(b.msg) box.appendChild(el("p",{class:"hint err",text:b.msg}));
+  else if(b.note && b.d === null && !b.s && !b.e) box.appendChild(el("p",{class:"hint okmsg",text:b.note}));
   return box;
 }
 /* formda bekleyen oturumu kaydet: {ok:true} ya da {ok:false,msg} */
@@ -1435,7 +1438,7 @@ function fillDetail(d, c, w){
     if(nameChanged) c.name = name;
     if(codeChanged) c.cd = code;
     if(changed){ touchCourse(c); save(); }
-    drafts["ed:"+c.code] = {name:c.name, code:title(c), baseName:c.name, baseCode:title(c), msg: changed ? "Kaydedildi." + roomNote : "Değişiklik yok.", ok:true};
+    drafts["ed:"+c.code] = {name:c.name, code:title(c), baseName:c.name, baseCode:title(c), msg: changed ? "Kaydedildi." + roomNote : "Her şey kayıtlı, bekleyen değişiklik yok.", ok:true};
     render();
   }}));
   det.appendChild(emsg);
